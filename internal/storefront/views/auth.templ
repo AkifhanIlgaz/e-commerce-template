@@ -1,0 +1,40 @@
+// MÜŞTERİYE GÖRE DÜZENLE — Müşteri giriş/kayıt sayfaları.
+package views
+
+templ CustomerLogin(d LayoutData, errMsg string) {
+	@Layout("Giriş", d) {
+		<div class="max-w-sm mx-auto card bg-base-100 shadow p-6">
+			<h1 class="text-xl font-bold mb-4">Giriş Yap</h1>
+			if errMsg != "" {
+				<div class="alert alert-error text-sm mb-3">{ errMsg }</div>
+			}
+			<form method="post" action="/login" class="flex flex-col gap-3">
+				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
+				<input type="email" name="email" placeholder="E-posta" class="input input-bordered w-full" required/>
+				<input type="password" name="password" placeholder="Şifre" class="input input-bordered w-full" required/>
+				<button type="submit" class="btn btn-primary w-full">Giriş Yap</button>
+			</form>
+			<p class="text-sm mt-4 text-center">
+				Hesabınız yok mu? <a href="/register" class="link link-primary">Kayıt olun</a>
+			</p>
+		</div>
+	}
+}
+
+templ CustomerRegister(d LayoutData, errMsg string) {
+	@Layout("Kayıt Ol", d) {
+		<div class="max-w-sm mx-auto card bg-base-100 shadow p-6">
+			<h1 class="text-xl font-bold mb-4">Kayıt Ol</h1>
+			if errMsg != "" {
+				<div class="alert alert-error text-sm mb-3">{ errMsg }</div>
+			}
+			<form method="post" action="/register" class="flex flex-col gap-3">
+				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
+				<input type="text" name="name" placeholder="Ad Soyad" class="input input-bordered w-full" required/>
+				<input type="email" name="email" placeholder="E-posta" class="input input-bordered w-full" required/>
+				<input type="password" name="password" placeholder="Şifre (en az 6 karakter)" class="input input-bordered w-full" required/>
+				<button type="submit" class="btn btn-primary w-full">Kayıt Ol</button>
+			</form>
+		</div>
+	}
+}

@@ -1,0 +1,70 @@
+package views
+
+import (
+	"fmt"
+
+	"ecommerce/internal/core/order"
+)
+
+templ Dashboard(csrfToken, adminName string, stats *order.Stats, productCount int64, recent []order.Order) {
+	@Layout("Dashboard", csrfToken, adminName) {
+		<h1 class="text-2xl font-bold mb-4">Dashboard</h1>
+		<div class="stats shadow bg-base-100 w-full mb-6">
+			<div class="stat">
+				<div class="stat-title">Toplam Sipariş</div>
+				<div class="stat-value">{ fmt.Sprint(stats.TotalOrders) }</div>
+			</div>
+			<div class="stat">
+				<div class="stat-title">Ödeme Bekleyen</div>
+				<div class="stat-value text-warning">{ fmt.Sprint(stats.PendingOrders) }</div>
+			</div>
+			<div class="stat">
+				<div class="stat-title">Ciro</div>
+				<div class="stat-value text-success">{ stats.RevenueDisplay() }</div>
+			</div>
+			<div class="stat">
+				<div class="stat-title">Ürün Sayısı</div>
+				<div class="stat-value">{ fmt.Sprint(productCount) }</div>
+			</div>
+		</div>
+		<h2 class="text-lg font-semibold mb-2">Son Siparişler</h2>
+		<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+			<table class="table">
+				<thead>
+					<tr><th>Sipariş</th><th>Müşteri</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
+				</thead>
+				<tbody>
+					for _, o := range recent {
+						<tr>
+							<td class="font-mono text-xs">{ o.ID.Hex() }</td>
+							<td>{ o.FullName } <span class="opacity-60">({ o.Email })</span></td>
+							<td>{ o.TotalDisplay() }</td>
+							<td>@StatusBadge(o.Status)</td>
+							<td>{ o.CreatedAt.Format("02.01.2006 15:04") }</td>
+						</tr>
+					}
+					if len(recent) == 0 {
+						<tr><td colspan="5" class="text-center opacity-60">Henüz sipariş yok</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+templ StatusBadge(status string) {
+	switch status {
+		case "pending_payment":
+			<span class="badge badge-warning">Ödeme Bekliyor</span>
+		case "paid":
+			<span class="badge badge-success">Ödendi</span>
+		case "shipped":
+			<span class="badge badge-info">Kargoda</span>
+		case "delivered":
+			<span class="badge badge-neutral">Teslim Edildi</span>
+		case "cancelled":
+			<span class="badge badge-error">İptal</span>
+		default:
+			<span class="badge">{ status }</span>
+	}
+}

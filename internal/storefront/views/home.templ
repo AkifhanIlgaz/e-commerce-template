@@ -1,0 +1,41 @@
+// MÜŞTERİYE GÖRE DÜZENLE — Anasayfa.
+// Her yeni müşteride EN ÇOK değişecek dosya bu: hero metni, kampanya
+// banner'ları, öne çıkan bölümler. Yapı bilinçli olarak düz tutuldu,
+// bölümleri doğrudan silip/ekleyip düzenle.
+package views
+
+import (
+	"ecommerce/internal/core/product"
+	"ecommerce/internal/storefront/views/components"
+)
+
+templ Home(d LayoutData, featured []product.Product) {
+	@Layout("Anasayfa", d) {
+		<!-- MÜŞTERİYE GÖRE DÜZENLE: hero bölümü -->
+		<section class="hero bg-primary text-primary-content rounded-box mb-8">
+			<div class="hero-content text-center py-16">
+				<div class="max-w-md">
+					<h1 class="text-4xl font-bold">{ d.StoreName }</h1>
+					<p class="py-4 opacity-90">
+						Yeni sezon ürünleri keşfedin. Bu metni müşterinin sloganıyla değiştirin.
+					</p>
+					<a href="/products" class="btn btn-secondary">Alışverişe Başla</a>
+				</div>
+			</div>
+		</section>
+		<!-- MÜŞTERİYE GÖRE DÜZENLE: öne çıkan ürünler bölümü -->
+		<section>
+			<h2 class="text-2xl font-bold mb-4">Öne Çıkanlar</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+				for _, p := range featured {
+					@components.ProductCard(p)
+				}
+			</div>
+			if len(featured) == 0 {
+				<p class="opacity-60">Henüz ürün eklenmemiş. Admin panelinden ürün ekleyin.</p>
+			}
+		</section>
+		<!-- MÜŞTERİYE GÖRE DÜZENLE: buraya kampanya banner'ı, kategori
+		     vitrinleri, marka hikayesi gibi bölümler eklenebilir -->
+	}
+}

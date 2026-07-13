@@ -1,0 +1,78 @@
+// MÜŞTERİYE GÖRE DÜZENLE — Storefront layout'u.
+// Navbar, footer ve genel sayfa çerçevesi burada. Logo/menü linklerini
+// müşteriye göre değiştir. Renk/font için theme-config.css'i düzenle.
+package views
+
+import "strconv"
+
+// LayoutData, her sayfaya giden ortak veri.
+type LayoutData struct {
+	StoreName    string
+	CSRFToken    string
+	CustomerName string // giriş yapmadıysa boş
+	CartCount    int
+}
+
+templ Layout(title string, d LayoutData) {
+	<!DOCTYPE html>
+	<html lang="tr" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="csrf-token" content={ d.CSRFToken }/>
+			<title>{ title } — { d.StoreName }</title>
+			<link rel="stylesheet" href="/static/css/daisyui.css"/>
+			<!-- MÜŞTERİYE GÖRE DÜZENLE: tüm marka renkleri/fontları bu dosyada -->
+			<link rel="stylesheet" href="/static/css/theme-config.css"/>
+			<script src="/static/js/tailwind-browser.js"></script>
+			<script src="/static/js/htmx.min.js"></script>
+			<script>
+				document.addEventListener("htmx:configRequest", function (e) {
+					e.detail.headers["X-CSRF-Token"] =
+						document.querySelector('meta[name="csrf-token"]').content;
+				});
+			</script>
+		</head>
+		<body class="min-h-screen bg-base-200 flex flex-col">
+			<!-- MÜŞTERİYE GÖRE DÜZENLE: navbar / logo -->
+			<header class="navbar bg-base-100 shadow-sm sticky top-0 z-40">
+				<div class="flex-1">
+					<a href="/" class="btn btn-ghost text-xl font-bold text-primary">{ d.StoreName }</a>
+					<a href="/products" class="btn btn-ghost btn-sm">Ürünler</a>
+				</div>
+				<div class="flex-none flex items-center gap-2">
+					<a href="/cart" class="btn btn-ghost btn-sm">
+						Sepet
+						@CartCounter(d.CartCount, false)
+					</a>
+					if d.CustomerName != "" {
+						<span class="text-sm opacity-70">{ d.CustomerName }</span>
+						<button class="btn btn-ghost btn-sm" hx-post="/logout">Çıkış</button>
+					} else {
+						<a href="/login" class="btn btn-ghost btn-sm">Giriş</a>
+					}
+				</div>
+			</header>
+			<main class="flex-1 w-full max-w-6xl mx-auto p-4 md:p-6">
+				{ children... }
+			</main>
+			<!-- MÜŞTERİYE GÖRE DÜZENLE: footer -->
+			<footer class="footer footer-center p-6 bg-base-100 text-base-content/70 text-sm">
+				<p>© 2026 { d.StoreName } — Tüm hakları saklıdır.</p>
+			</footer>
+			<!-- Hızlı bakış modalı buraya yüklenir -->
+			<div id="quick-view-slot"></div>
+		</body>
+	</html>
+}
+
+// CartCounter — sepet sayacı. oob=true ile render edilirse htmx,
+// sayfadaki mevcut sayacı out-of-band swap ile günceller
+// (sepete ekleme cevabının yanında gönderilir).
+templ CartCounter(count int, oob bool) {
+	if oob {
+		<span id="cart-count" hx-swap-oob="true" class="badge badge-primary badge-sm">{ strconv.Itoa(count) }</span>
+	} else {
+		<span id="cart-count" class="badge badge-primary badge-sm">{ strconv.Itoa(count) }</span>
+	}
+}

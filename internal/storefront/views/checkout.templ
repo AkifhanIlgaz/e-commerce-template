@@ -1,0 +1,143 @@
+// MÜŞTERİYE GÖRE DÜZENLE — Checkout ve ödeme sayfaları.
+// Ödeme akışı: form -> PlaceOrder -> PaymentPage (3DS iframe + htmx polling)
+// -> başarılı/başarısız sayfası. Akışın mantığı core/checkout'ta, burada
+// sadece görünüm var.
+package views
+
+import (
+	"fmt"
+
+	"ecommerce/internal/core/cart"
+	"ecommerce/internal/core/order"
+)
+
+templ CheckoutPage(d LayoutData, c *cart.Cart, email, fullName, errMsg string) {
+	@Layout("Ödeme", d) {
+		<h1 class="text-2xl font-bold mb-4">Ödeme</h1>
+		<div class="flex flex-col lg:flex-row gap-6">
+			<form method="post" action="/checkout" class="card bg-base-100 shadow p-6 flex flex-col gap-4 flex-1">
+				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
+				if errMsg != "" {
+					<div class="alert alert-error text-sm">{ errMsg }</div>
+				}
+				<label class="form-control">
+					<span class="label-text mb-1">Ad Soyad</span>
+					<input type="text" name="full_name" value={ fullName } class="input input-bordered w-full" required/>
+				</label>
+				<label class="form-control">
+					<span class="label-text mb-1">E-posta</span>
+					<input type="email" name="email" value={ email } class="input input-bordered w-full" required/>
+				</label>
+				<label class="form-control">
+					<span class="label-text mb-1">Teslimat Adresi</span>
+					<textarea name="address" class="textarea textarea-bordered w-full" rows="3" required></textarea>
+				</label>
+				<button type="submit" class="btn btn-primary">Ödemeye Devam Et</button>
+			</form>
+			<div class="card bg-base-100 shadow p-6 lg:w-96 h-fit">
+				<h2 class="font-bold mb-3">Sipariş Özeti</h2>
+				for _, it := range c.Items {
+					<div class="flex justify-between text-sm py-1">
+						<span>{ it.Product.Name } × { qtyStr(it.Qty) }</span>
+						<span>{ lineTotal(it) }</span>
+					</div>
+				}
+				<div class="divider my-2"></div>
+				<div class="flex justify-between font-bold">
+					<span>Toplam</span>
+					<span>{ c.TotalDisplay() }</span>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// PaymentPage — 3DS benzeri akış: sağlayıcının onay sayfası iframe'de
+// açılır, aynı anda htmx 2 saniyede bir durumu sorar (polling).
+// Ödeme sonuçlanınca polling cevabı HX-Redirect ile sonuç sayfasına yollar.
+templ PaymentPage(d LayoutData, orderID, threeDSURL string) {
+	@Layout("Ödeme Onayı", d) {
+		<div class="max-w-xl mx-auto">
+			<h1 class="text-2xl font-bold mb-2">Ödeme Onayı</h1>
+			<p class="text-sm opacity-70 mb-4">Bankanızın doğrulama ekranı aşağıda açıldı. Onayladıktan sonra otomatik yönlendirileceksiniz.</p>
+			<div class="card bg-base-100 shadow overflow-hidden">
+				<iframe src={ threeDSURL } class="w-full h-80 border-0" title="3D Secure"></iframe>
+			</div>
+			<div
+				class="flex items-center gap-3 mt-4 justify-center text-sm opacity-70"
+				hx-get={ "/checkout/payment/" + orderID + "/status" }
+				hx-trigger="every 2s"
+				hx-swap="innerHTML"
+			>
+				<span class="loading loading-spinner loading-sm"></span>
+				Ödeme durumu kontrol ediliyor...
+			</div>
+		</div>
+	}
+}
+
+templ OrderSuccessPage(d LayoutData, o *order.Order) {
+	@Layout("Sipariş Alındı", d) {
+		<div class="max-w-xl mx-auto text-center bg-base-100 rounded-box shadow p-10">
+			<div class="text-5xl mb-4">✅</div>
+			<h1 class="text-2xl font-bold mb-2">Siparişiniz alındı!</h1>
+			<p class="opacity-70 mb-1">Sipariş No: <span class="font-mono">{ o.ID.Hex() }</span></p>
+			<p class="opacity-70 mb-6">Tutar: { o.TotalDisplay() }</p>
+			<a href="/products" class="btn btn-primary">Alışverişe Devam Et</a>
+		</div>
+	}
+}
+
+templ OrderFailedPage(d LayoutData, orderID string) {
+	@Layout("Ödeme Başarısız", d) {
+		<div class="max-w-xl mx-auto text-center bg-base-100 rounded-box shadow p-10">
+			<div class="text-5xl mb-4">❌</div>
+			<h1 class="text-2xl font-bold mb-2">Ödeme tamamlanamadı</h1>
+			<p class="opacity-70 mb-6">Ödemeniz onaylanmadı, siparişiniz iptal edildi. Sepetiniz duruyor — tekrar deneyebilirsiniz.</p>
+			<a href="/checkout" class="btn btn-primary">Tekrar Dene</a>
+		</div>
+	}
+}
+
+// Mock3DSPage — mock sağlayıcının iframe içinde gösterdiği sahte banka onay
+// ekranı. Gerçek sağlayıcıya geçince bu sayfa kullanılmaz.
+templ Mock3DSPage(paymentID, csrfToken string) {
+	<!DOCTYPE html>
+	<html lang="tr" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<link rel="stylesheet" href="/static/css/daisyui.css"/>
+			<script src="/static/js/tailwind-browser.js"></script>
+		</head>
+		<body class="bg-base-200 flex items-center justify-center min-h-screen p-4">
+			<div class="card bg-base-100 shadow p-6 text-center max-w-sm">
+				<h2 class="font-bold mb-1">Mock Banka — 3D Secure</h2>
+				<p class="text-xs opacity-60 mb-4">Bu bir test ekranıdır. Gerçek ödeme alınmaz.</p>
+				<form method="post" action="/pay/mock-3ds/resolve" class="flex gap-2 justify-center">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="payment_id" value={ paymentID }/>
+					<button name="decision" value="approve" class="btn btn-success btn-sm">Onayla</button>
+					<button name="decision" value="reject" class="btn btn-error btn-sm btn-outline">Reddet</button>
+				</form>
+			</div>
+		</body>
+	</html>
+}
+
+templ Mock3DSDone(msg string) {
+	<!DOCTYPE html>
+	<html lang="tr" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<link rel="stylesheet" href="/static/css/daisyui.css"/>
+			<script src="/static/js/tailwind-browser.js"></script>
+		</head>
+		<body class="bg-base-200 flex items-center justify-center min-h-screen">
+			<p class="text-sm opacity-70">{ msg }</p>
+		</body>
+	</html>
+}
+
+func qtyStr(q int) string {
+	return fmt.Sprint(q)
+}

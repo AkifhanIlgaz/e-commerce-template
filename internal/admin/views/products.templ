@@ -1,0 +1,188 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+
+	"ecommerce/internal/core/product"
+)
+
+templ ProductsPage(csrfToken, adminName string, products []product.Product) {
+	@Layout("Ürünler", csrfToken, adminName) {
+		<div class="flex items-center justify-between mb-4">
+			<h1 class="text-2xl font-bold">Ürünler</h1>
+			<a href="/admin/products/new" class="btn btn-primary btn-sm">+ Yeni Ürün</a>
+		</div>
+		<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+			<table class="table">
+				<thead>
+					<tr><th>Ürün</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th class="w-40"></th></tr>
+				</thead>
+				<tbody id="product-table">
+					for _, p := range products {
+						@ProductRow(p)
+					}
+					if len(products) == 0 {
+						<tr><td colspan="5" class="text-center opacity-60">Henüz ürün yok</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// ProductRow — tablo satırı. "Düzenle" tıklanınca htmx satırı ProductRowEdit ile değiştirir (inline edit pattern'i).
+templ ProductRow(p product.Product) {
+	<tr id={ "row-" + p.ID.Hex() }>
+		<td>
+			<div class="flex items-center gap-3">
+				if p.ImageURL != "" {
+					<img src={ p.ImageURL } alt={ p.Name } class="w-10 h-10 rounded object-cover"/>
+				}
+				<span class="font-medium">{ p.Name }</span>
+			</div>
+		</td>
+		<td>{ p.PriceDisplay() }</td>
+		<td>{ fmt.Sprint(p.Stock) }</td>
+		<td>
+			if p.Active {
+				<span class="badge badge-success badge-sm">Aktif</span>
+			} else {
+				<span class="badge badge-ghost badge-sm">Pasif</span>
+			}
+		</td>
+		<td class="flex gap-1">
+			<button
+				class="btn btn-xs"
+				hx-get={ "/admin/products/" + p.ID.Hex() + "/edit-row" }
+				hx-target={ "#row-" + p.ID.Hex() }
+				hx-swap="outerHTML"
+			>Düzenle</button>
+			<button
+				class="btn btn-xs btn-error btn-outline"
+				hx-delete={ "/admin/products/" + p.ID.Hex() }
+				hx-target={ "#row-" + p.ID.Hex() }
+				hx-swap="outerHTML"
+				hx-confirm={ "'" + p.Name + "' silinsin mi?" }
+			>Sil</button>
+		</td>
+	</tr>
+}
+
+// ProductRowEdit — inline edit satırı: kaydet -> güncellenen ProductRow döner, iptal -> eski satır döner.
+templ ProductRowEdit(p product.Product) {
+	<tr id={ "row-" + p.ID.Hex() }>
+		<td><input form={ "edit-" + p.ID.Hex() } type="text" name="name" value={ p.Name } class="input input-bordered input-sm w-full"/></td>
+		<td><input form={ "edit-" + p.ID.Hex() } type="number" name="price" step="0.01" min="0.01" value={ centsToDecimal(p.PriceCents) } class="input input-bordered input-sm w-24"/></td>
+		<td><input form={ "edit-" + p.ID.Hex() } type="number" name="stock" min="0" value={ fmt.Sprint(p.Stock) } class="input input-bordered input-sm w-20"/></td>
+		<td>
+			<label class="label cursor-pointer gap-2">
+				<input form={ "edit-" + p.ID.Hex() } type="checkbox" name="active" class="toggle toggle-sm" checked?={ p.Active }/>
+			</label>
+		</td>
+		<td class="flex gap-1">
+			<form
+				id={ "edit-" + p.ID.Hex() }
+				hx-put={ "/admin/products/" + p.ID.Hex() + "/inline" }
+				hx-target={ "#row-" + p.ID.Hex() }
+				hx-swap="outerHTML"
+			>
+				<button type="submit" class="btn btn-xs btn-primary">Kaydet</button>
+			</form>
+			<button
+				class="btn btn-xs btn-ghost"
+				hx-get={ "/admin/products/" + p.ID.Hex() + "/row" }
+				hx-target={ "#row-" + p.ID.Hex() }
+				hx-swap="outerHTML"
+			>İptal</button>
+		</td>
+	</tr>
+}
+
+// ProductForm — yeni ürün / tam düzenleme formu (htmx ile post edilir).
+templ ProductFormPage(csrfToken, adminName string, p *product.Product, errMsg string) {
+	@Layout(formTitle(p), csrfToken, adminName) {
+		<h1 class="text-2xl font-bold mb-4">{ formTitle(p) }</h1>
+		@ProductForm(p, errMsg)
+	}
+}
+
+templ ProductForm(p *product.Product, errMsg string) {
+	<form
+		id="product-form"
+		class="card bg-base-100 shadow p-6 flex flex-col gap-4 max-w-xl"
+		if p == nil {
+			hx-post="/admin/products"
+		} else {
+			hx-put={ "/admin/products/" + p.ID.Hex() }
+		}
+		hx-target="#product-form"
+		hx-swap="outerHTML"
+	>
+		if errMsg != "" {
+			<div class="alert alert-error text-sm">{ errMsg }</div>
+		}
+		<label class="form-control">
+			<span class="label-text mb-1">Ürün Adı</span>
+			<input type="text" name="name" value={ formVal(p, func(pp product.Product) string { return pp.Name }) } class="input input-bordered w-full" required/>
+		</label>
+		<label class="form-control">
+			<span class="label-text mb-1">Açıklama</span>
+			<textarea name="description" class="textarea textarea-bordered w-full" rows="4">{ formVal(p, func(pp product.Product) string { return pp.Description }) }</textarea>
+		</label>
+		<div class="grid grid-cols-2 gap-4">
+			<label class="form-control">
+				<span class="label-text mb-1">Fiyat (₺)</span>
+				<input type="number" name="price" step="0.01" min="0.01" value={ priceVal(p) } class="input input-bordered w-full" required/>
+			</label>
+			<label class="form-control">
+				<span class="label-text mb-1">Stok</span>
+				<input type="number" name="stock" min="0" value={ stockVal(p) } class="input input-bordered w-full" required/>
+			</label>
+		</div>
+		<label class="form-control">
+			<span class="label-text mb-1">Görsel URL</span>
+			<input type="text" name="image_url" value={ formVal(p, func(pp product.Product) string { return pp.ImageURL }) } class="input input-bordered w-full" placeholder="https://... veya /static/img/..."/>
+		</label>
+		<label class="label cursor-pointer justify-start gap-3">
+			<input type="checkbox" name="active" class="toggle" checked?={ p == nil || p.Active }/>
+			<span class="label-text">Storefront'ta göster (aktif)</span>
+		</label>
+		<div class="flex gap-2">
+			<button type="submit" class="btn btn-primary">Kaydet</button>
+			<a href="/admin/products" class="btn btn-ghost">Vazgeç</a>
+		</div>
+	</form>
+}
+
+func formTitle(p *product.Product) string {
+	if p == nil {
+		return "Yeni Ürün"
+	}
+	return "Ürünü Düzenle: " + p.Name
+}
+
+func formVal(p *product.Product, get func(product.Product) string) string {
+	if p == nil {
+		return ""
+	}
+	return get(*p)
+}
+
+func priceVal(p *product.Product) string {
+	if p == nil {
+		return ""
+	}
+	return centsToDecimal(p.PriceCents)
+}
+
+func stockVal(p *product.Product) string {
+	if p == nil {
+		return "0"
+	}
+	return fmt.Sprint(p.Stock)
+}
+
+func centsToDecimal(cents int64) string {
+	return strconv.FormatFloat(float64(cents)/100, 'f', 2, 64)
+}

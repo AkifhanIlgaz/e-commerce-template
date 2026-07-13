@@ -1,0 +1,79 @@
+package views
+
+import (
+	"fmt"
+
+	"ecommerce/internal/core/order"
+)
+
+templ OrdersPage(csrfToken, adminName string, orders []order.Order) {
+	@Layout("Siparişler", csrfToken, adminName) {
+		<h1 class="text-2xl font-bold mb-4">Siparişler</h1>
+		<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+			<table class="table">
+				<thead>
+					<tr><th>Sipariş</th><th>Müşteri</th><th>Ürünler</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
+				</thead>
+				<tbody>
+					for _, o := range orders {
+						@OrderRow(o)
+					}
+					if len(orders) == 0 {
+						<tr><td colspan="6" class="text-center opacity-60">Henüz sipariş yok</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// OrderRow — durum dropdown'ı değişince htmx satırı günceller.
+templ OrderRow(o order.Order) {
+	<tr id={ "order-" + o.ID.Hex() }>
+		<td class="font-mono text-xs">{ o.ID.Hex() }</td>
+		<td>
+			<div>{ o.FullName }</div>
+			<div class="text-xs opacity-60">{ o.Email }</div>
+		</td>
+		<td class="text-sm">
+			for _, it := range o.Items {
+				<div>{ it.Name } × { itQty(it) }</div>
+			}
+		</td>
+		<td>{ o.TotalDisplay() }</td>
+		<td>
+			<select
+				name="status"
+				class="select select-bordered select-sm"
+				hx-post={ "/admin/orders/" + o.ID.Hex() + "/status" }
+				hx-target={ "#order-" + o.ID.Hex() }
+				hx-swap="outerHTML"
+			>
+				for _, st := range order.AllStatuses {
+					<option value={ st } selected?={ st == o.Status }>{ statusLabel(st) }</option>
+				}
+			</select>
+		</td>
+		<td class="text-sm">{ o.CreatedAt.Format("02.01.2006 15:04") }</td>
+	</tr>
+}
+
+func statusLabel(st string) string {
+	switch st {
+	case order.StatusPendingPayment:
+		return "Ödeme Bekliyor"
+	case order.StatusPaid:
+		return "Ödendi"
+	case order.StatusShipped:
+		return "Kargoda"
+	case order.StatusDelivered:
+		return "Teslim Edildi"
+	case order.StatusCancelled:
+		return "İptal"
+	}
+	return st
+}
+
+func itQty(it order.Item) string {
+	return fmt.Sprint(it.Qty)
+}

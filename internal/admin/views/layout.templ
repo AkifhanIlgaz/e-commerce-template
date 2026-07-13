@@ -1,0 +1,71 @@
+// Admin paneli layout'u — SABİT, müşteriye göre değişmez.
+// DaisyUI'nin varsayılan "light" temasını kullanır, storefront temasından etkilenmez.
+package views
+
+templ Layout(title string, csrfToken string, adminName string) {
+	<!DOCTYPE html>
+	<html lang="tr" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="csrf-token" content={ csrfToken }/>
+			<title>{ title } — Admin</title>
+			<link rel="stylesheet" href="/static/css/daisyui.css"/>
+			<script src="/static/js/tailwind-browser.js"></script>
+			<script src="/static/js/htmx.min.js"></script>
+			<script>
+				// Tüm htmx isteklerine CSRF token'ı ekle
+				document.addEventListener("htmx:configRequest", function (e) {
+					e.detail.headers["X-CSRF-Token"] =
+						document.querySelector('meta[name="csrf-token"]').content;
+				});
+			</script>
+		</head>
+		<body class="min-h-screen bg-base-200">
+			<div class="navbar bg-base-100 shadow-sm">
+				<div class="flex-1">
+					<a href="/admin" class="btn btn-ghost text-lg font-bold">Admin Panel</a>
+					<a href="/admin/products" class="btn btn-ghost btn-sm">Ürünler</a>
+					<a href="/admin/orders" class="btn btn-ghost btn-sm">Siparişler</a>
+					<a href="/admin/users" class="btn btn-ghost btn-sm">Kullanıcılar</a>
+				</div>
+				<div class="flex-none gap-2 items-center flex">
+					<span class="text-sm opacity-70">{ adminName }</span>
+					<button class="btn btn-ghost btn-sm" hx-post="/admin/logout">Çıkış</button>
+				</div>
+			</div>
+			<main class="p-6 max-w-6xl mx-auto">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ LoginPage(csrfToken string, errMsg string) {
+	<!DOCTYPE html>
+	<html lang="tr" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Admin Girişi</title>
+			<link rel="stylesheet" href="/static/css/daisyui.css"/>
+			<script src="/static/js/tailwind-browser.js"></script>
+		</head>
+		<body class="min-h-screen bg-base-200 flex items-center justify-center">
+			<div class="card bg-base-100 shadow-xl w-96">
+				<div class="card-body">
+					<h1 class="card-title">Admin Girişi</h1>
+					if errMsg != "" {
+						<div class="alert alert-error text-sm">{ errMsg }</div>
+					}
+					<form method="post" action="/admin/login" class="flex flex-col gap-3">
+						<input type="hidden" name="csrf_token" value={ csrfToken }/>
+						<input type="email" name="email" placeholder="E-posta" class="input input-bordered w-full" required/>
+						<input type="password" name="password" placeholder="Şifre" class="input input-bordered w-full" required/>
+						<button type="submit" class="btn btn-primary w-full">Giriş Yap</button>
+					</form>
+				</div>
+			</div>
+		</body>
+	</html>
+}
