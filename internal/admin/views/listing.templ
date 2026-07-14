@@ -1,0 +1,509 @@
+package views
+
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"ecommerce/internal/core/session"
+	"ecommerce/internal/shared/icons"
+	"ecommerce/internal/shared/ui"
+)
+
+// ListRow — listing tablosunun bir satırı. Feature handler'ları kendi
+// entity'lerini bu view-model'e çevirir; view hiçbir feature paketini
+// import etmez (handler'lar feature klasöründe yaşayabilsin diye).
+type ListRow struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
+}
+
+// Listing — sayfalı liste verisi.
+type Listing struct {
+	Items      []ListRow
+	Total      int64
+	Page       int
+	PerPage    int
+	TotalPages int
+}
+
+// qs — sayfa numarası + aktif arama terimini URL query string'e çevirir.
+// Fragment ve modal URL'leri bununla kurulur ki htmx isteklerinde arama
+// filtresi kaybolmasın (htmx 1.x GET dışındaki isteklerde parametreleri
+// body'ye koyduğu için hx-include yerine URL tercih edilir).
+func (p ListingProps) qs(page int) string {
+	v := url.Values{}
+	v.Set("page", strconv.Itoa(page))
+	if p.Query != "" {
+		v.Set("q", p.Query)
+	}
+	return "?" + v.Encode()
+}
+
+func (p Listing) HasPrev() bool { return p.Page > 1 }
+func (p Listing) HasNext() bool { return p.Page < p.TotalPages }
+func (p Listing) Empty() bool   { return p.Total == 0 }
+
+// PageNumbers — pagination'da gösterilecek sayfa numaraları. 7 sayfaya kadar
+// hepsi listelenir; fazlasında ilk/son sayfa + aktif sayfanın komşuları kalır,
+// aradaki atlamalar 0 (üç nokta) ile işaretlenir.
+func (p Listing) PageNumbers() []int {
+	n, cur := p.TotalPages, p.Page
+	if n <= 7 {
+		out := make([]int, 0, n)
+		for i := 1; i <= n; i++ {
+			out = append(out, i)
+		}
+		return out
+	}
+	start, end := max(cur-1, 2), min(cur+1, n-1)
+	out := []int{1}
+	if start > 2 {
+		out = append(out, 0)
+	}
+	for i := start; i <= end; i++ {
+		out = append(out, i)
+	}
+	if end < n-1 {
+		out = append(out, 0)
+	}
+	return append(out, n)
+}
+
+// ListingProps — isim tabanlı CRUD sayfalarının (marka/etiket/açıklama...)
+// ortak iskelet girdileri. Farklılaşan her şey buradadır.
+type ListingProps struct {
+	Title    string // "Markalar"
+	Singular string // "Marka" (buton ve modal başlıklarında)
+	BasePath string // "/admin/brands"
+	// Query — aktif arama terimi ("q"); arama kutusunun değeri ve boş
+	// sonuç mesajı için.
+	Query string
+	Icon  IconFunc
+	CSRF  string
+	Sess  *session.Session
+	Page  Listing
+	// OOB true ise ListingTable hx-swap-oob ile basılır: form başarı
+	// yanıtında modal temizlenirken liste out-of-band yenilenir.
+	OOB bool
+	// Cards true ise klasik tablonun altında aynı verinin 1c "kart-satır"
+	// varyantı da basılır (tasarım karşılaştırması). Aynı fragment içinde
+	// yaşadığı için arama/sayfalama/silme iki görünümü birlikte yeniler.
+	Cards bool
+}
+
+// ListingPage — tam sayfa iskeleti: başlık + ekle butonu, tablo fragment'ı
+// ve htmx'in form fragment'ını bastığı boş modal konteyneri.
+templ ListingPage(p ListingProps) {
+	@Layout(LayoutProps{
+		Title: p.Title,
+		CSRF:  p.CSRF,
+		Path:  p.BasePath,
+		Sess:  p.Sess,
+		Crumbs: []Crumb{
+			{Label: "Panel", Href: "/admin"},
+			{Label: p.Title},
+		},
+	}) {
+		<div class="card overflow-hidden">
+			<div class="flex flex-wrap items-center justify-between gap-3 border-b border-thin border-border px-4 py-3 sm:px-5">
+				<h1 class="font-display text-lg">{ p.Title }</h1>
+				<div class="flex flex-wrap items-center gap-2">
+					<input
+						id="listing-search"
+						class="input input-sm w-36 sm:w-52"
+						type="search"
+						name="q"
+						value={ p.Query }
+						placeholder="Ara…"
+						aria-label={ p.Title + " içinde ara" }
+						hx-get={ p.BasePath }
+						hx-trigger="input changed delay:300ms, search"
+						hx-target="#listing-table"
+						hx-swap="outerHTML"
+					/>
+					@listingAddButton(p, "btn btn-primary btn-sm")
+				</div>
+			</div>
+			@ListingTable(p)
+		</div>
+		<div id="listing-modal"></div>
+		@listingDeleteModal(p)
+	}
+}
+
+// listingDeleteModal — silme onayı modalı. Trash butonlarındaki hx-confirm'i
+// htmx:confirm event'i üzerinden yakalar: native window.confirm yerine bu
+// modal açılır, "Evet, sil" denince bekletilen istek issueRequest ile gider.
+// Script çalışmazsa hx-confirm native fallback olarak devrededir.
+templ listingDeleteModal(p ListingProps) {
+	<div id="listing-delete-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="listing-delete-title">
+		<div class="modal-box max-w-sm">
+			<div class="flex flex-col items-center gap-4 text-center">
+				<span class="flex size-14 shrink-0 items-center justify-center rounded-pill bg-danger/10 text-danger" aria-hidden="true">
+					@icons.Trash(templ.Attributes{"class": "size-icon-lg"})
+				</span>
+				<div class="flex flex-col gap-1">
+					<h2 id="listing-delete-title" class="card-title">Emin misiniz?</h2>
+					<p class="text-sm text-ink-muted">
+						<span id="listing-delete-name" class="font-semibold text-ink"></span>
+						{ " " }kalıcı olarak silinecek. Bu işlem geri alınamaz.
+					</p>
+				</div>
+				<div class="grid w-full grid-cols-2 gap-2">
+					<button type="button" class="btn btn-ghost" data-delete-cancel>Vazgeç</button>
+					<button type="button" class="btn btn-danger" data-delete-confirm>Evet, sil</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script>
+		(function () {
+			var modal = document.getElementById('listing-delete-modal');
+			var nameEl = document.getElementById('listing-delete-name');
+			var issue = null;
+			function close() {
+				modal.classList.remove('modal-open');
+				issue = null;
+			}
+			document.body.addEventListener('htmx:confirm', function (evt) {
+				var btn = evt.detail.elt;
+				if (!btn.hasAttribute('data-delete-name')) return;
+				evt.preventDefault();
+				nameEl.textContent = '“' + btn.getAttribute('data-delete-name') + '”';
+				issue = evt.detail.issueRequest;
+				modal.classList.add('modal-open');
+				modal.querySelector('[data-delete-cancel]').focus();
+			});
+			modal.addEventListener('click', function (evt) {
+				if (evt.target === modal) close();
+			});
+			document.addEventListener('keydown', function (evt) {
+				if (evt.key === 'Escape' && modal.classList.contains('modal-open')) close();
+			});
+			modal.querySelector('[data-delete-cancel]').addEventListener('click', close);
+			modal.querySelector('[data-delete-confirm]').addEventListener('click', function () {
+				var fn = issue;
+				close();
+				if (fn) fn(true);
+			});
+
+			// --- Satır seçimi + toplu silme çubuğu (delegasyonla; fragment
+			// swap'larında yeniden bağlanma gerektirmez, seçim swap'ta sıfırlanır) ---
+			function rowBoxes() {
+				return Array.prototype.slice.call(document.querySelectorAll('#listing-table [data-row-select]'));
+			}
+			function syncSelection() {
+				var boxes = rowBoxes();
+				var checked = boxes.filter(function (b) { return b.checked; });
+				var bar = document.getElementById('listing-bulkbar');
+				var all = document.querySelector('#listing-table [data-select-all]');
+				if (bar) {
+					bar.classList.toggle('hidden', checked.length === 0);
+					bar.classList.toggle('flex', checked.length > 0);
+					var cnt = bar.querySelector('[data-selected-count]');
+					if (cnt) cnt.textContent = checked.length;
+					var del = bar.querySelector('[data-bulk-delete]');
+					if (del) del.setAttribute('data-delete-name', checked.length + ' kayıt');
+				}
+				if (all) {
+					all.checked = boxes.length > 0 && checked.length === boxes.length;
+					all.indeterminate = checked.length > 0 && checked.length < boxes.length;
+				}
+				boxes.forEach(function (b) {
+					var tr = b.closest('tr');
+					if (tr) tr.classList.toggle('row-selected', b.checked);
+				});
+			}
+			document.addEventListener('change', function (evt) {
+				if (evt.target.matches('[data-select-all]')) {
+					rowBoxes().forEach(function (b) { b.checked = evt.target.checked; });
+				}
+				if (evt.target.matches('[data-select-all], [data-row-select]')) syncSelection();
+			});
+			document.addEventListener('click', function (evt) {
+				if (evt.target.closest('[data-clear-selection]')) {
+					rowBoxes().forEach(function (b) { b.checked = false; });
+					syncSelection();
+				}
+			});
+		})();
+	</script>
+}
+
+// listingAddButton — "Yeni …" butonu; form fragment'ını modal konteynerine çeker.
+templ listingAddButton(p ListingProps, class string) {
+	<button
+		type="button"
+		class={ class }
+		hx-get={ p.BasePath + "/new" + p.qs(1) }
+		hx-target="#listing-modal"
+		hx-swap="innerHTML"
+	>
+		@icons.Plus(templ.Attributes{"class": "size-icon-sm"})
+		Yeni { p.Singular }
+	</button>
+}
+
+// ListingTable — htmx ile yenilenen liste fragment'ı (pagination, silme ve
+// form başarısı sonrası bu bütün olarak swap edilir). Veri yoksa empty state.
+templ ListingTable(p ListingProps) {
+	<div
+		id="listing-table"
+		if p.OOB {
+			hx-swap-oob="outerHTML"
+		}
+	>
+		if p.Page.Empty() {
+			@listingEmptyState(p)
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-thin border-border">
+							<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:px-5">İsim</th>
+							<th scope="col" class="hidden px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:table-cell sm:px-5">Oluşturulma</th>
+							<th scope="col" class="px-4 py-3 text-end text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:px-5">İşlemler</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border">
+						for _, row := range p.Page.Items {
+							<tr class="transition-colors duration-fast hover:bg-surface-alt border-thin border-border">
+								<td class="px-4 py-3 font-medium whitespace-nowrap sm:px-5">
+									<div class="flex items-center gap-3">
+										{ row.Name }
+									</div>
+								</td>
+								<td class="hidden px-4 py-3 whitespace-nowrap text-ink-muted sm:table-cell sm:px-5">{ row.CreatedAt.Format("02.01.2006") }</td>
+								<td class="px-4 py-3 text-end whitespace-nowrap sm:px-5">
+									<div class="flex justify-end gap-2">
+										<button
+											type="button"
+											class="btn btn-outline btn-xs"
+											aria-label={ p.Singular + " düzenle: " + row.Name }
+											hx-get={ fmt.Sprintf("%s/%s/edit%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
+											hx-target="#listing-modal"
+											hx-swap="innerHTML"
+										>Düzenle</button>
+										<button
+											type="button"
+											class="btn btn-outline btn-danger btn-xs"
+											data-delete-name={ row.Name }
+											aria-label={ p.Singular + " sil: " + row.Name }
+											hx-delete={ fmt.Sprintf("%s/%s%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
+											hx-confirm={ fmt.Sprintf("\"%s\" silinsin mi? Bu işlem geri alınamaz.", row.Name) }
+											hx-target="#listing-table"
+											hx-swap="outerHTML"
+										>Sil</button>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+			@listingPagination(p)
+			if p.Cards {
+				@listingCardVariant(p)
+			}
+		}
+	</div>
+}
+
+// listingCardVariant — 1c "kart-satırlar" tasarımı: her kayıt surface-alt
+// zemin üzerinde yüzen ayrı bir kart, aksiyonlar ikon buton. Klasik tabloyla
+// aynı fragment'ta yaşar; Cards=true olan sayfalarda karşılaştırma için basılır.
+templ listingCardVariant(p ListingProps) {
+	<div class="border-t border-thin border-border bg-surface-alt px-4 py-5 sm:px-5">
+		<div class="mb-4">
+			<h2 class="font-display text-lg">{ p.Title } — kart görünümü</h2>
+			<p class="mt-0.5 text-sm text-ink-muted">{ fmt.Sprintf("%d kayıt gösteriliyor", p.Page.Total) }</p>
+		</div>
+		<div class="hidden gap-3 px-4 pb-2 sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem]">
+			<span class="text-xs font-semibold tracking-wide text-ink-muted uppercase">İsim</span>
+			<span class="text-xs font-semibold tracking-wide text-ink-muted uppercase">Oluşturulma</span>
+			<span aria-hidden="true"></span>
+		</div>
+		<div class="flex flex-col gap-2">
+			for _, row := range p.Page.Items {
+				<div class="card card-hover grid cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-thin border-border px-4 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem]">
+					<div class="min-w-0">
+						<div class="truncate text-sm font-medium">{ row.Name }</div>
+						<div class="mt-0.5 text-xs text-ink-muted sm:hidden">{ row.CreatedAt.Format("02.01.2006") }</div>
+					</div>
+					<span class="hidden text-sm text-ink-muted sm:block">{ row.CreatedAt.Format("02.01.2006") }</span>
+					<div class="flex justify-end gap-1.5">
+						<button
+							type="button"
+							class="btn btn-outline btn-xs"
+							aria-label={ p.Singular + " düzenle: " + row.Name }
+							hx-get={ fmt.Sprintf("%s/%s/edit%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
+							hx-target="#listing-modal"
+							hx-swap="innerHTML"
+						>
+							@icons.Pencil(templ.Attributes{"class": "size-icon-sm"})
+						</button>
+						<button
+							type="button"
+							class="btn btn-outline btn-danger btn-xs"
+							data-delete-name={ row.Name }
+							aria-label={ p.Singular + " sil: " + row.Name }
+							hx-delete={ fmt.Sprintf("%s/%s%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
+							hx-confirm={ fmt.Sprintf("\"%s\" silinsin mi? Bu işlem geri alınamaz.", row.Name) }
+							hx-target="#listing-table"
+							hx-swap="outerHTML"
+						>
+							@icons.Trash(templ.Attributes{"class": "size-icon-sm"})
+						</button>
+					</div>
+				</div>
+			}
+		</div>
+		if p.Page.TotalPages > 1 {
+			<div class="mt-4 flex items-center justify-center gap-1">
+				@listingPageNumbers(p)
+			</div>
+		}
+	</div>
+}
+
+// listingPagination — tablo altı sayfalama çubuğu: solda "Önceki", ortada
+// sayfa numaraları (uzun listelerde … ile kısaltılır), sağda "Sonraki".
+templ listingPagination(p ListingProps) {
+	<div class="mt-3 flex items-center justify-center gap-3 px-4 py-3 sm:px-5">
+		<button
+			type="button"
+			class="btn btn-outline btn-sm"
+			disabled?={ !p.Page.HasPrev() }
+			hx-get={ p.BasePath + p.qs(p.Page.Page-1) }
+			hx-target="#listing-table"
+			hx-swap="outerHTML"
+		>
+			@icons.ChevronLeft(templ.Attributes{"class": "size-icon-sm"})
+			Önceki
+		</button>
+		<div class="flex items-center gap-1">
+			@listingPageNumbers(p)
+		</div>
+		<button
+			type="button"
+			class="btn btn-outline btn-sm"
+			disabled?={ !p.Page.HasNext() }
+			hx-get={ p.BasePath + p.qs(p.Page.Page+1) }
+			hx-target="#listing-table"
+			hx-swap="outerHTML"
+		>
+			Sonraki
+			@icons.ChevronRight(templ.Attributes{"class": "size-icon-sm"})
+		</button>
+	</div>
+}
+
+// listingPageNumbers — sayfa numarası butonları; uzun listelerde … ile
+// kısaltılır. Hem klasik pagination hem kart varyantı kullanır.
+templ listingPageNumbers(p ListingProps) {
+	for _, n := range p.Page.PageNumbers() {
+		if n == 0 {
+			<span class="px-1 text-sm text-ink-muted" aria-hidden="true">…</span>
+		} else if n == p.Page.Page {
+			<button type="button" class="btn btn-primary btn-sm" aria-current="page" aria-label={ "Sayfa " + strconv.Itoa(n) }>
+				{ strconv.Itoa(n) }
+			</button>
+		} else {
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				aria-label={ "Sayfa " + strconv.Itoa(n) }
+				hx-get={ p.BasePath + p.qs(n) }
+				hx-target="#listing-table"
+				hx-swap="outerHTML"
+			>
+				{ strconv.Itoa(n) }
+			</button>
+		}
+	}
+}
+
+// listingEmptyState — hiç kayıt yokken gösterilen boş içerik.
+templ listingEmptyState(p ListingProps) {
+	<div class="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+		<span class="flex size-14 items-center justify-center rounded-pill bg-surface-alt text-ink-muted" aria-hidden="true">
+			@p.Icon(templ.Attributes{"class": "size-icon-lg"})
+		</span>
+		<div class="flex flex-col gap-1">
+			if p.Query != "" {
+				<h2 class="font-display text-lg">Sonuç bulunamadı</h2>
+				<p class="max-w-narrow text-sm text-ink-muted">
+					"{ p.Query }" aramasıyla eşleşen { strings.ToLower(p.Singular) } yok.
+				</p>
+			} else {
+				<h2 class="font-display text-lg">Henüz { strings.ToLower(p.Singular) } yok</h2>
+				<p class="max-w-narrow text-sm text-ink-muted">
+					Ürünlerinizi düzenlemek için ilk kaydınızı oluşturun.
+				</p>
+			}
+		</div>
+		if p.Query == "" {
+			@listingAddButton(p, "btn btn-primary")
+		}
+	</div>
+}
+
+// ListingFormProps — oluşturma/düzenleme modal formunun girdileri.
+// Handler create'te Action=BasePath+Method=post, edit'te
+// Action=BasePath/{id}?page=N+Method=put ile render eder.
+type ListingFormProps struct {
+	Singular string
+	Action   string
+	Method   string // "post" | "put"
+	Name     string // edit'te mevcut isim; hata sonrası kullanıcının girdiği değer
+	Err      string
+	IsEdit   bool
+}
+
+// ListingFormModal — modal içinde isim formu. Form #listing-modal'ı hedefler:
+// validasyon hatasında handler formu yeniden basar; başarıda boş içerik +
+// hx-swap-oob'lu ListingTable döner (modal kapanır, liste yenilenir).
+templ ListingFormModal(p ListingFormProps) {
+	<div class="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="listing-modal-title" onclick="if (event.target === this) this.remove()">
+		<div class="modal-box">
+			<div class="flex items-center justify-between gap-3">
+				<h2 id="listing-modal-title" class="card-title">
+					if p.IsEdit {
+						{ p.Singular } düzenle
+					} else {
+						Yeni { p.Singular }
+					}
+				</h2>
+				<button type="button" class="btn btn-ghost btn-xs" aria-label="Kapat" onclick="this.closest('.modal').remove()">
+					@icons.X(templ.Attributes{"class": "size-icon-sm"})
+				</button>
+			</div>
+			<form
+				class="mt-4 flex flex-col gap-4"
+				if p.Method == "put" {
+					hx-put={ p.Action }
+				} else {
+					hx-post={ p.Action }
+				}
+				hx-target="#listing-modal"
+				hx-swap="innerHTML"
+			>
+				if p.Err != "" {
+					<div class="alert alert-danger text-sm" role="alert">{ p.Err }</div>
+				}
+				<div class="form-control gap-1">
+					<label class="label" for="listing-name"><span class="label-text">İsim</span></label>
+					@ui.TextInput("listing-name", "name", p.Name, templ.Attributes{"required": true, "maxlength": "100", "autofocus": true})
+				</div>
+				<div class="flex justify-end gap-2">
+					<button type="button" class="btn btn-ghost" onclick="this.closest('.modal').remove()">Vazgeç</button>
+					<button type="submit" class="btn btn-primary">Kaydet</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}

@@ -56,8 +56,8 @@ Tek kaynak: **`styles/theme.css`**. Bu dosya Go embed ile (`styles/embed.go` →
   `#f6f3ec`, kart beyaz); dark mode yeşile çalan koyu tonlar (nötr gri değil).
 - Fontlar: **Fraunces** (display — `h1,h2,h3` base'de otomatik alır) +
   **Manrope** (gövde). Google Fonts `<link>`'i `ThemeHead()` içinde.
-- İmza dokunuş: `.btn` pill (tam yuvarlak) formdadır; input'lar
-  `radius-control`'de kalır. Rakamlar `tnum` ile hizalıdır.
+- `.btn` ve input'lar `radius-control`'dedir (sidebar linkleriyle aynı).
+  Rakamlar `tnum` ile hizalıdır.
 
 **Mod'dan bağımsız (@theme):**
 - Font: `--font-sans`(Manrope), `--font-display`(Fraunces), `--font-mono` → `font-sans|display|mono`

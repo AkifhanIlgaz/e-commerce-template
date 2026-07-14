@@ -12,7 +12,10 @@ import (
 	"ecommerce/internal/admin/handlers"
 	"ecommerce/internal/config"
 	"ecommerce/internal/core/auth"
+	"ecommerce/internal/core/brand"
+	"ecommerce/internal/core/category"
 	"ecommerce/internal/core/session"
+	"ecommerce/internal/core/tag"
 	"ecommerce/internal/shared/db"
 	storefront "ecommerce/internal/storefront/handlers"
 )
@@ -47,6 +50,9 @@ func run() error {
 
 	// --- core servisler ---
 	users := auth.NewAuthService(auth.NewAuthRepository(mongoDB))
+	categories := category.NewCategoryService(category.NewCategoryRepository(mongoDB))
+	brands := brand.NewBrandService(brand.NewBrandRepository(mongoDB))
+	tags := tag.NewTagService(tag.NewTagRepository(mongoDB))
 
 	// ilk açılışta env'den gelen admin kullanıcısını oluştur
 	if err := users.EnsureAdmin(ctx, cfg.AdminEmail, cfg.AdminPassword); err != nil {
@@ -68,6 +74,9 @@ func run() error {
 	auth.NewCustomerAuth(cfg.StoreName, users).Mount(app)
 	auth.NewAdminAuth(users).Mount(app)
 	handlers.NewDashboard().Mount(app)
+	category.NewCategoryHandler(categories).Mount(app)
+	brand.NewBrandHandler(brands).Mount(app)
+	tag.NewTagHandler(tags).Mount(app)
 
 	slog.Info("sunucu başlıyor",
 		"addr", cfg.Addr,

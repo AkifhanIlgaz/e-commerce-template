@@ -275,8 +275,7 @@
 		font-size: var(--text-sm);
 		font-weight: var(--font-weight-medium);
 		line-height: var(--leading-tight);
-		/* İmza dokunuş: butonlar pill formda (input'lar radius-control'de kalır) */
-		border-radius: var(--radius-pill);
+		border-radius: var(--radius-control);
 		border: var(--border-width-thin) solid var(--border-c);
 		background: var(--surface);
 		color: var(--ink);
@@ -446,10 +445,15 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-wide);
 		color: var(--ink-muted);
+		background: var(--surface-alt);
 	}
 	.table td {
 		padding: 0.75rem 1rem;
 		border-top: var(--border-width-thin) solid var(--border-c);
+	}
+	.table tbody tr {
+		transition: background-color var(--duration-fast) var(--ease-default);
+		&:hover { background: color-mix(in oklab, var(--surface-alt) 55%, var(--surface)); }
 	}
 
 	/* --- Alert --- */
