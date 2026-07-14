@@ -1,0 +1,110 @@
+package views
+
+import (
+	"strconv"
+
+	"ecommerce/internal/shared/icons"
+)
+
+// Sidebar — açılıp kapanabilir sol menü. Linkler NavItems'tan gelir (nav.go);
+// Children'ı dolu öğeler SidebarGroup ile açılır grup olarak render edilir.
+// Altta tema değiştirme ve çıkış butonları bulunur.
+templ Sidebar(p LayoutProps) {
+	<aside class="sidebar">
+		<div class="sidebar-head">
+			<a href="/admin" class="sidebar-label px-2 font-display text-xl">Admin</a>
+			<button type="button" class="btn btn-ghost btn-sm max-lg:hidden" aria-label="Menüyü daralt/genişlet" onclick="window.__toggleSidebar()">
+				@icons.PanelLeft(templ.Attributes{"class": "size-icon-sm"})
+			</button>
+			<button type="button" class="btn btn-ghost btn-sm lg:hidden" aria-label="Menüyü kapat" onclick="window.__toggleMobileSidebar()">
+				@icons.X(templ.Attributes{"class": "size-icon-sm"})
+			</button>
+		</div>
+		<nav class="flex flex-1 flex-col gap-1 px-3 py-2" aria-label="Admin menüsü">
+			for i, it := range NavItems {
+				if len(it.Children) > 0 {
+					@SidebarGroup(p, it, "sidebar-group-"+strconv.Itoa(i))
+				} else {
+					@SidebarLink(p, it)
+				}
+			}
+		</nav>
+		<div class="flex flex-col gap-1 border-t-thin border-border px-3 py-3">
+			<span class="sidebar-label truncate px-3 pb-1 text-xs text-ink-muted">{ p.Sess.Email }</span>
+			<button type="button" class="sidebar-link" title="Tema değiştir" onclick="window.__toggleTheme()">
+				@NavIcon(icons.SunMoon)
+				<span class="sidebar-label">Tema değiştir</span>
+			</button>
+			<button type="button" class="sidebar-link" title="Çıkış yap" hx-post="/admin/logout">
+				@NavIcon(icons.LogOut)
+				<span class="sidebar-label">Çıkış yap</span>
+			</button>
+		</div>
+	</aside>
+}
+
+// NavIcon — sidebar menü ikonu slotu. nil ikon sessizce atlanır, böylece
+// NavItems'a ikonsuz öğe eklemek güvenlidir (metin-only link).
+templ NavIcon(icon IconFunc) {
+	if icon != nil {
+		@icon(templ.Attributes{"class": "size-icon-sm shrink-0"})
+	}
+}
+
+// SidebarLink — tekil menü linki.
+templ SidebarLink(p LayoutProps, it NavItem) {
+	{{ active := navActive(p.Path, it.Href) }}
+	<a
+		href={ templ.URL(it.Href) }
+		class={ "sidebar-link", templ.KV("sidebar-link-active", active) }
+		title={ it.Label }
+		if active {
+			aria-current="page"
+		}
+	>
+		@NavIcon(it.Icon)
+		<span class="sidebar-label">{ it.Label }</span>
+	</a>
+}
+
+// SidebarGroup — açılır-kapanır menü grubu. Yükseklik animasyonu için
+// grid-template-rows 0fr→1fr tekniği kullanılır (.sidebar-sub-wrap);
+// native <details> kapalıyken display:none olduğundan animate edilemez.
+// Alt linklerden biri aktifse grup açık gelir. Sidebar daraltılmışken alt
+// liste gizlidir; gruba tıklamak önce sidebar'ı genişletir (__toggleNavGroup).
+// id, buton (aria-controls) ile alt listeyi eşler; çağıran benzersiz verir.
+templ SidebarGroup(p LayoutProps, it NavItem, id string) {
+	{{ open := groupOpen(p.Path, it) }}
+	<div class={ "sidebar-group", templ.KV("sidebar-group-open", open) }>
+		<button
+			type="button"
+			class={ "sidebar-link w-full", templ.KV("sidebar-link-active", open) }
+			title={ it.Label }
+			aria-expanded={ strconv.FormatBool(open) }
+			aria-controls={ id }
+			onclick="window.__toggleNavGroup(this)"
+		>
+			@NavIcon(it.Icon)
+			<span class="sidebar-label">{ it.Label }</span>
+			@icons.ChevronRight(templ.Attributes{"class": "sidebar-chevron size-icon-sm shrink-0"})
+		</button>
+		<div class="sidebar-sub-wrap" id={ id }>
+			<div class="sidebar-sub">
+				for _, c := range it.Children {
+					{{ subActive := navActive(p.Path, c.Href) }}
+					<a
+						href={ templ.URL(c.Href) }
+						class={ "sidebar-link sidebar-sublink", templ.KV("sidebar-link-active", subActive) }
+						title={ c.Label }
+						if subActive {
+							aria-current="page"
+						}
+					>
+						@NavIcon(c.Icon)
+						<span class="sidebar-label">{ c.Label }</span>
+					</a>
+				}
+			</div>
+		</div>
+	</div>
+}

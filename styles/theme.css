@@ -609,6 +609,136 @@
 		min-height: 3.5rem;
 		padding: 0.5rem 1rem;
 	}
+
+	/* --- Admin sidebar ---
+	   Masaüstü (lg+): sticky panel; .sidebar-collapsed (localStorage("sidebar"),
+	   FOUC guard admin Layout'undadır) ile ikon moduna daralır.
+	   Mobil (<lg): off-canvas drawer; <html>'e .sidebar-mobile-open class'ı
+	   ile açılır, .sidebar-overlay arkasını kapatır. Daraltılmış mod mobilde
+	   uygulanmaz — drawer her zaman tam genişliktir. */
+	.sidebar {
+		position: sticky;
+		top: 0;
+		z-index: var(--z-sticky);
+		display: flex;
+		flex-direction: column;
+		flex-shrink: 0;
+		height: 100dvh;
+		width: 16rem;
+		overflow: hidden;
+		background: var(--surface);
+		border-inline-end: var(--border-width-thin) solid var(--border-c);
+		transition: width var(--duration-base) var(--ease-default);
+	}
+	.sidebar-overlay { display: none; }
+
+	@media (width >= 64rem) {
+		.sidebar-collapsed .sidebar { width: 4.25rem; }
+		.sidebar-collapsed .sidebar-label { display: none; }
+		.sidebar-collapsed .sidebar-head { justify-content: center; }
+		.sidebar-collapsed .sidebar-link { justify-content: center; padding-inline: 0.5rem; }
+		.sidebar-collapsed .sidebar-chevron { display: none; }
+		.sidebar-collapsed .sidebar-sub-wrap { display: none; }
+	}
+
+	@media (width < 64rem) {
+		.sidebar {
+			position: fixed;
+			inset-block: 0;
+			inset-inline-start: 0;
+			z-index: var(--z-modal);
+			translate: -100% 0;
+			transition: translate var(--duration-base) var(--ease-default);
+		}
+		.sidebar-mobile-open .sidebar { translate: 0 0; }
+		.sidebar-mobile-open .sidebar-overlay {
+			display: block;
+			position: fixed;
+			inset: 0;
+			z-index: var(--z-modal); /* DOM'da sidebar'dan önce geldiği için altında kalır */
+			background: var(--overlay);
+		}
+		/* drawer açıkken arka plan scroll'u kilitlenir */
+		.sidebar-mobile-open { overflow: hidden; }
+	}
+
+	.sidebar-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		min-height: 3.5rem;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.sidebar-link {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: var(--spacing-control-y) 0.75rem;
+		border-radius: var(--radius-control);
+		border: 0;
+		background: transparent;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-medium);
+		color: var(--ink-muted);
+		text-decoration: none;
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color var(--duration-fast) var(--ease-default),
+			color var(--duration-fast) var(--ease-default);
+		&:hover:not(:disabled) {
+			background: color-mix(in oklab, var(--ink) 8%, transparent);
+			color: var(--ink);
+		}
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); }
+		&.htmx-request { opacity: var(--opacity-loading); pointer-events: none; }
+	}
+	.sidebar-link-active {
+		background: color-mix(in oklab, var(--primary) 12%, transparent);
+		color: var(--primary);
+		&:hover:not(:disabled) {
+			background: color-mix(in oklab, var(--primary) 16%, transparent);
+			color: var(--primary);
+		}
+	}
+
+	/* --- Sidebar açılır grup ---
+	   Yükseklik animasyonu grid-template-rows 0fr→1fr ile yapılır:
+	   height:auto transition edilemez ama fr track'leri edilebilir.
+	   Kapanışta içerik overflow:hidden ile kırpılır. */
+	.sidebar-chevron {
+		margin-inline-start: auto;
+		transition: rotate var(--duration-base) var(--ease-default);
+	}
+	.sidebar-group-open > .sidebar-link .sidebar-chevron { rotate: 90deg; }
+	.sidebar-sub-wrap {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows var(--duration-base) var(--ease-default);
+	}
+	.sidebar-group-open > .sidebar-sub-wrap { grid-template-rows: 1fr; }
+	.sidebar-sub {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		min-height: 0;
+		overflow: hidden;
+		opacity: 0;
+		translate: 0 -0.25rem;
+		transition:
+			opacity var(--duration-base) var(--ease-default),
+			translate var(--duration-base) var(--ease-default);
+	}
+	.sidebar-group-open .sidebar-sub {
+		padding-block: 0.25rem;
+		opacity: 1;
+		translate: 0 0;
+	}
+	/* Alt link, üst öğenin label'ıyla aynı hizadan başlar
+	   (0.75rem padding + 1rem ikon + 0.75rem gap) */
+	.sidebar-sublink { padding-inline-start: 2.5rem; }
 }
 
 @keyframes theme-spin {

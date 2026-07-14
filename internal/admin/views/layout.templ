@@ -1,20 +1,61 @@
 package views
 
 import "ecommerce/internal/core/session"
+import "ecommerce/internal/shared/icons"
 import "ecommerce/internal/shared/ui"
 
+// LayoutProps — admin sayfa iskeleti girdileri.
+// Path aktif sidebar linkini işaretlemek için sayfanın route'udur;
+// Crumbs içerik üstündeki breadcrumb zinciridir.
+type LayoutProps struct {
+	Title  string
+	CSRF   string
+	Path   string
+	Sess   *session.Session
+	Crumbs []Crumb
+}
 
-
-// Layout — admin panelinin temel iskeleti.
-templ Layout(title, csrf string, sess *session.Session) {
+// Layout — admin panelinin temel iskeleti. Oturum varsa sidebar'lı shell,
+// yoksa (login) sade ortalanmış sayfa render edilir.
+templ Layout(p LayoutProps) {
 	<!DOCTYPE html>
 	<html lang="tr">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="csrf-token" content={ csrf }/>
-			<title>{ title } — Admin</title>
+			<meta name="csrf-token" content={ p.CSRF }/>
+			<title>{ p.Title } — Admin</title>
 			@ui.ThemeHead()
+			<script>
+				// Sidebar FOUC guard: tema guard'ıyla aynı pattern.
+				(function () {
+					if (localStorage.getItem("sidebar") === "collapsed") {
+						document.documentElement.classList.add("sidebar-collapsed");
+					}
+					window.__toggleSidebar = function () {
+						var c = document.documentElement.classList.toggle("sidebar-collapsed");
+						localStorage.setItem("sidebar", c ? "collapsed" : "open");
+					};
+					// Mobil drawer: kalıcı değildir (localStorage yok), sayfa
+					// geçişinde kapalı başlar. Escape ile de kapanır.
+					window.__toggleMobileSidebar = function () {
+						document.documentElement.classList.toggle("sidebar-mobile-open");
+					};
+					document.addEventListener("keydown", function (e) {
+						if (e.key === "Escape") document.documentElement.classList.remove("sidebar-mobile-open");
+					});
+					// Açılır menü grubu: daraltılmış sidebar'da önce genişlet,
+					// sonra grubu aç/kapa (animasyon CSS'te, .sidebar-group-open).
+					window.__toggleNavGroup = function (btn) {
+						if (document.documentElement.classList.contains("sidebar-collapsed")) {
+							window.__toggleSidebar();
+							if (btn.closest(".sidebar-group").classList.contains("sidebar-group-open")) return;
+						}
+						var open = btn.closest(".sidebar-group").classList.toggle("sidebar-group-open");
+						btn.setAttribute("aria-expanded", open ? "true" : "false");
+					};
+				})();
+			</script>
 			<script src="/static/js/htmx.min.js"></script>
 			<script>
 				document.addEventListener("htmx:configRequest", function (e) {
@@ -24,25 +65,46 @@ templ Layout(title, csrf string, sess *session.Session) {
 			</script>
 		</head>
 		<body class="min-h-screen bg-surface-alt text-ink font-sans">
-			@navbar(sess)
-			<main class="mx-auto w-full max-w-content px-4 py-8">
-				{ children... }
-			</main>
+			if p.Sess != nil {
+				<div class="flex min-h-screen">
+					<div class="sidebar-overlay" onclick="window.__toggleMobileSidebar()" aria-hidden="true"></div>
+					@Sidebar(p)
+					<div class="flex min-w-0 flex-1 flex-col">
+						<header class="flex min-h-14 items-center gap-3 px-4 py-3 lg:px-6">
+							<button type="button" class="btn btn-ghost btn-sm lg:hidden" aria-label="Menüyü aç" onclick="window.__toggleMobileSidebar()">
+								@icons.Menu(templ.Attributes{"class": "size-icon-sm"})
+							</button>
+							@Breadcrumbs(p.Crumbs)
+						</header>
+						<main class="w-full max-w-content px-4 pb-8 lg:px-6">
+							{ children... }
+						</main>
+					</div>
+				</div>
+			} else {
+				<main class="mx-auto w-full max-w-content px-4 py-8">
+					{ children... }
+				</main>
+			}
 		</body>
 	</html>
 }
 
-templ navbar(sess *session.Session) {
-	<header class="navbar sticky top-0 z-sticky bg-surface shadow-card">
-		<div class="mx-auto flex w-full max-w-content items-center justify-between px-4">
-			<a href="/admin" class="font-display text-xl">Admin</a>
-			<nav class="flex items-center gap-2">
-				@ui.ThemeToggle()
-				if sess != nil {
-					<span class="text-sm text-ink-muted">{ sess.Email }</span>
-					<button type="button" class="btn btn-outline btn-sm" hx-post="/admin/logout">Çıkış</button>
+// Breadcrumbs — içerik başlığı üstündeki gezinme zinciri.
+// Href'i boş crumb aktif sayfadır, düz metin basılır.
+templ Breadcrumbs(crumbs []Crumb) {
+	if len(crumbs) > 0 {
+		<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-sm text-ink-muted">
+			for i, c := range crumbs {
+				if i > 0 {
+					@icons.ChevronRight(templ.Attributes{"class": "size-icon-sm shrink-0"})
 				}
-			</nav>
-		</div>
-	</header>
+				if c.Href != "" {
+					<a href={ templ.URL(c.Href) } class="link">{ c.Label }</a>
+				} else {
+					<span class="font-medium text-ink" aria-current="page">{ c.Label }</span>
+				}
+			}
+		</nav>
+	}
 }
