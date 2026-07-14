@@ -1,3 +1,5 @@
 .env
 bin/
 *_templ.txt
+tmp/
+build-errors.log

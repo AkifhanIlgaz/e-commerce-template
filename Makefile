@@ -17,5 +17,6 @@ build: templ
 run: templ
 	go run ./cmd/server/main.go
 
-# infra + sunucu tek komutta
-dev: infra run
+# infra + hot-reload'lu sunucu (air: .go/.templ/.css değişince templ generate + rebuild)
+dev: infra
+	air
