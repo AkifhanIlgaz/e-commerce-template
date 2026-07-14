@@ -3,7 +3,6 @@ package handlers
 import (
 	"ecommerce/internal/admin/views"
 	"ecommerce/internal/core/auth"
-	"ecommerce/internal/core/middleware"
 	"ecommerce/internal/core/session"
 	"ecommerce/internal/shared/httpx"
 
@@ -12,19 +11,16 @@ import (
 
 // Dashboard — panel ana sayfası. İstatistikler geldiğinde order/product
 // servisleri bağımlılık olarak buraya gelecek.
-type Dashboard struct {
-	sessions *session.SessionManager
-}
+type Dashboard struct{}
 
-func NewDashboard(sessions *session.SessionManager) *Dashboard {
-	return &Dashboard{sessions: sessions}
+func NewDashboard() *Dashboard {
+	return &Dashboard{}
 }
 
 func (h *Dashboard) Mount(app *fiber.App) {
-	app.Get("/admin", h.dashboard, middleware.RequireRole(h.sessions, session.AdminScope, auth.RoleAdmin))
+	app.Get("/admin", auth.RequireAdmin, h.dashboard)
 }
 
 func (h *Dashboard) dashboard(c fiber.Ctx) error {
-	sess := middleware.SessionFromCtx(c)
-	return httpx.Render(c, views.Dashboard(middleware.CSRFToken(c), sess))
+	return httpx.Render(c, views.Dashboard(session.Token(c), session.FromCtx(c)))
 }

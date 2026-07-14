@@ -15,7 +15,7 @@ build: templ
 	go build -o bin/server ./cmd/server
 
 run: templ
-	go run ./cmd/server
+	go run ./cmd/server/main.go
 
 # infra + sunucu tek komutta
 dev: infra run

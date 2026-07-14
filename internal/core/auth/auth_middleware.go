@@ -1,12 +1,27 @@
 package auth
 
-import "ecommerce/internal/core/session"
+import (
+	"github.com/gofiber/fiber/v3"
 
-// session paketindeki scope'lara kısayol: handler'lar AdminScope/StoreScope
-// yazabilsin diye. Scope tanımları session'da yaşar çünkü middleware paketi
-// de onları kullanır; burada tanımlansaydı middleware→auth→middleware
-// döngüsü oluşurdu.
-var (
-	AdminScope = session.AdminScope
-	StoreScope = session.StoreScope
+	"ecommerce/internal/core/session"
+	"ecommerce/internal/shared/httpx"
 )
+
+// RequireAuth, giriş yapmamış kullanıcıyı müşteri login sayfasına yollar.
+func RequireAuth(c fiber.Ctx) error {
+	if session.FromCtx(c) == nil {
+		return httpx.Redirect(c, "/login")
+	}
+
+	return c.Next()
+}
+
+// RequireAdmin, admin rolü olmayan herkesi admin login sayfasına yollar.
+// Tek session store kullanıldığı için ayrım rol kontrolüyle yapılır.
+func RequireAdmin(c fiber.Ctx) error {
+	sess := session.FromCtx(c)
+	if sess == nil || sess.Role != RoleAdmin {
+		return httpx.Redirect(c, "/admin/login")
+	}
+	return c.Next()
+}

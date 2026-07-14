@@ -1,24 +1,25 @@
 package db
 
 import (
-	"context"
-	"time"
+	"fmt"
 
-	"github.com/redis/go-redis/v9"
+	fiberredis "github.com/gofiber/storage/redis/v3"
 )
 
-// NewRedis, Redis'e bağlanır ve client döner.
-func NewRedis(ctx context.Context, addr, password string, dbNum int) (*redis.Client, func(), error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     addr,
+// NewRedisStorage, fiber session middleware'inin kullanacağı Redis storage'ı
+// kurar. Paket bağlantı hatasında panic'lediği için error'a çevrilir.
+func NewRedisStorage(addr, password string, dbNum int) (storage *fiberredis.Storage, closeFn func(), err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("redis bağlantısı kurulamadı: %v", r)
+		}
+	}()
+
+	storage = fiberredis.New(fiberredis.Config{
+		Addrs:    []string{addr},
 		Password: password,
-		DB:       dbNum,
+		Database: dbNum,
 	})
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := client.Ping(pingCtx).Err(); err != nil {
-		return nil, nil, err
-	}
-	closeFn := func() { _ = client.Close() }
-	return client, closeFn, nil
+
+	return storage, func() { _ = storage.Close() }, nil
 }

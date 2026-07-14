@@ -9,12 +9,12 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/static"
 
-	adminhandlers "ecommerce/internal/admin/handlers"
+	"ecommerce/internal/admin/handlers"
 	"ecommerce/internal/config"
 	"ecommerce/internal/core/auth"
 	"ecommerce/internal/core/session"
 	"ecommerce/internal/shared/db"
-	storehandlers "ecommerce/internal/storefront/handlers"
+	storefront "ecommerce/internal/storefront/handlers"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func run() error {
 	}
 	defer closeMongo()
 
-	rdb, closeRedis, err := db.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	sessionStorage, closeRedis, err := db.NewRedisStorage(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,6 @@ func run() error {
 
 	// --- core servisler ---
 	users := auth.NewAuthService(auth.NewAuthRepository(mongoDB))
-	sessions := session.NewSessionManager(rdb, cfg.SessionIdleTimeout, cfg.SessionAbsoluteTimeout, cfg.IsProd())
 
 	// ilk açılışta env'den gelen admin kullanıcısını oluştur
 	if err := users.EnsureAdmin(ctx, cfg.AdminEmail, cfg.AdminPassword); err != nil {
@@ -59,16 +58,22 @@ func run() error {
 	app.Use(logger.New())
 	app.Use("/static", static.New("./static"))
 
+	// session + csrf tüm route'larda global; auth ayrımı rol middleware'iyle
+	sessionMW, sessionStore := session.New(sessionStorage, cfg.SessionIdleTimeout, cfg.SessionAbsoluteTimeout)
+	app.Use(sessionMW)
+	app.Use(session.CSRF(sessionStore, cfg.SessionIdleTimeout))
+
 	// her feature kendi handler'ıyla, sadece kendi bağımlılıklarını alarak mount edilir
-	auth.NewAdminAuthHandler(users, sessions).Mount(app)
-	adminhandlers.NewDashboard(sessions).Mount(app)
-	storehandlers.NewHome(cfg.StoreName, sessions).Mount(app)
-	auth.NewCustomerAuthHandler(users, sessions, cfg.StoreName).Mount(app)
+	storefront.NewHome(cfg.StoreName).Mount(app)
+	auth.NewCustomerAuth(cfg.StoreName, users).Mount(app)
+	auth.NewAdminAuth(users).Mount(app)
+	handlers.NewDashboard().Mount(app)
 
 	slog.Info("sunucu başlıyor",
 		"addr", cfg.Addr,
 		"storefront", "http://localhost"+cfg.Addr,
 		"admin", "http://localhost"+cfg.Addr+"/admin",
 	)
+
 	return app.Listen(cfg.Addr)
 }
