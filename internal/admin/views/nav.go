@@ -34,9 +34,9 @@ var NavItems = []NavItem{
 	{Label: "Panel", Href: "/admin", Icon: icons.LayoutDashboard},
 	{Label: "Ürünler", Icon: icons.Package, Children: []NavItem{
 		{Label: "Ürünler", Href: "/admin/products", Icon: icons.List},
-		{Label: "Kategoriler", Href: "/admin/categories", Icon: icons.Tags},
-		{Label: "Markalar", Href: "/admin/brands", Icon: icons.Tags},
-		{Label: "Etiketler", Href: "/admin/tags", Icon: icons.Tags},
+		{Label: "Kategoriler", Href: "/admin/categories", Icon: icons.FolderTree},
+		{Label: "Markalar", Href: "/admin/brands", Icon: icons.Award},
+		{Label: "Etiketler", Href: "/admin/tags", Icon: icons.Tag},
 	}},
 	{Label: "Siparişler", Href: "/admin/orders", Icon: icons.ShoppingCart},
 	{Label: "Müşteriler", Href: "/admin/customers", Icon: icons.Users},
