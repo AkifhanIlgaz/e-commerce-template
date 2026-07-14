@@ -20,47 +20,45 @@ func NewAuthService(repo *authRepository) *authService {
 }
 
 func (s *authService) Register(ctx context.Context, req RegisterRequest) (*User, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	email := strings.ToLower(strings.TrimSpace(req.Email))
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
+
 	u := &User{
 		ID:           bson.NewObjectID(),
-		Email:        email,
+		Email:        strings.ToLower(strings.TrimSpace(req.Email)),
 		PasswordHash: string(hash),
 		Name:         strings.TrimSpace(req.Name),
 		Role:         req.Role,
 		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
+
 	if err := s.repo.Insert(ctx, u); err != nil {
 		return nil, err
 	}
+
 	return u, nil
 }
 
 // Authenticate, email+şifre doğrular; RequiredRole boş değilse rol de eşleşmeli.
 // Admin girişi ile müşteri girişinin karışmaması bu rol kontrolüyle sağlanır.
 func (s *authService) Authenticate(ctx context.Context, req LoginRequest) (*User, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	u, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
-		// timing farkını azaltmak için yine de bir bcrypt çalıştır
-		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$invalidinvalidinvalidinvalidinvalidinvalid"), []byte(req.Password))
-		return nil, ErrInvalidCredentials
+		return nil, ErrUserNotFound
 	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(req.Password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
+
 	if req.RequiredRole != "" && u.Role != req.RequiredRole {
 		return nil, ErrInvalidCredentials
 	}
+
 	return u, nil
 }
 

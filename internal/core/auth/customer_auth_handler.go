@@ -43,24 +43,31 @@ func (h *CustomerAuthHandler) loginPage(c fiber.Ctx) error {
 	if middleware.SessionFromCtx(c) != nil {
 		return httpx.Redirect(c, "/account")
 	}
+
 	return httpx.Render(c, views.LoginPage(h.storeName, middleware.CSRFToken(c)))
 }
 
 func (h *CustomerAuthHandler) login(c fiber.Ctx) error {
-	email := c.FormValue("email")
-	u, err := h.authService.Authenticate(c.Context(), LoginRequest{
-		Email:        email,
-		Password:     c.FormValue("password"),
-		RequiredRole: RoleCustomer,
-	})
-	if err != nil {
-		return httpx.Render(c, views.LoginForm(email, err.Error()))
+	var req LoginRequest
+	if err := c.Bind().Form(&req); err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, "Geçersiz form verisi."))
 	}
-	// session fixation önlemi: varsa eski session'ı sil, yeni ID üret
+
+	req.RequiredRole = RoleCustomer
+	if err := req.Validate(); err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, err.Error()))
+	}
+
+	u, err := h.authService.Authenticate(c.Context(), req)
+	if err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, err.Error()))
+	}
+
 	h.sessionManager.Destroy(c.Context(), c, StoreScope)
 	if _, err := h.sessionManager.Create(c.Context(), c, StoreScope, u.ID.Hex(), u.Email, u.Name, u.Role); err != nil {
-		return httpx.Render(c, views.LoginForm(email, "Giriş yapılamadı, lütfen tekrar deneyin."))
+		return httpx.Render(c, views.LoginForm(req.Email, "Giriş yapılamadı, lütfen tekrar deneyin."))
 	}
+
 	return httpx.Redirect(c, "/account")
 }
 
@@ -68,25 +75,30 @@ func (h *CustomerAuthHandler) registerPage(c fiber.Ctx) error {
 	if middleware.SessionFromCtx(c) != nil {
 		return httpx.Redirect(c, "/account")
 	}
+
 	return httpx.Render(c, views.RegisterPage(h.storeName, middleware.CSRFToken(c)))
 }
 
 func (h *CustomerAuthHandler) register(c fiber.Ctx) error {
-	name := c.FormValue("name")
-	email := c.FormValue("email")
-	u, err := h.authService.Register(c.Context(), RegisterRequest{
-		Email:    email,
-		Password: c.FormValue("password"),
-		Name:     name,
-		Role:     RoleCustomer,
-	})
-	if err != nil {
-		return httpx.Render(c, views.RegisterForm(name, email, err.Error()))
+	var req RegisterRequest
+	if err := c.Bind().Form(&req); err != nil {
+		return httpx.Render(c, views.RegisterForm(req.Name, req.Email, "Geçersiz form verisi."))
 	}
-	// kayıttan sonra otomatik giriş
+
+	req.Role = RoleCustomer
+	if err := req.Validate(); err != nil {
+		return httpx.Render(c, views.RegisterForm(req.Name, req.Email, err.Error()))
+	}
+
+	u, err := h.authService.Register(c.Context(), req)
+	if err != nil {
+		return httpx.Render(c, views.RegisterForm(req.Name, req.Email, err.Error()))
+	}
+
 	if _, err := h.sessionManager.Create(c.Context(), c, StoreScope, u.ID.Hex(), u.Email, u.Name, u.Role); err != nil {
 		return httpx.Redirect(c, "/login")
 	}
+
 	return httpx.Redirect(c, "/account")
 }
 

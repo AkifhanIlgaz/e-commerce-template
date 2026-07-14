@@ -39,20 +39,27 @@ func (h *AdminAuthHandler) loginPage(c fiber.Ctx) error {
 }
 
 func (h *AdminAuthHandler) login(c fiber.Ctx) error {
-	email := c.FormValue("email")
-	u, err := h.authService.Authenticate(c.Context(), LoginRequest{
-		Email:        email,
-		Password:     c.FormValue("password"),
-		RequiredRole: RoleAdmin,
-	})
-	if err != nil {
-		return httpx.Render(c, views.LoginForm(email, err.Error()))
+	var req LoginRequest
+	if err := c.Bind().Form(&req); err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, "Geçersiz form verisi."))
 	}
-	// session fixation önlemi: varsa eski session'ı sil, yeni ID üret
+
+	// RequiredRole client'tan alınmaz (form:"-"), server-side set edilir
+	req.RequiredRole = RoleAdmin
+	if err := req.Validate(); err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, err.Error()))
+	}
+
+	u, err := h.authService.Authenticate(c.Context(), req)
+	if err != nil {
+		return httpx.Render(c, views.LoginForm(req.Email, err.Error()))
+	}
+
 	h.sessionManager.Destroy(c.Context(), c, AdminScope)
 	if _, err := h.sessionManager.Create(c.Context(), c, AdminScope, u.ID.Hex(), u.Email, u.Name, u.Role); err != nil {
-		return httpx.Render(c, views.LoginForm(email, "Giriş yapılamadı, lütfen tekrar deneyin."))
+		return httpx.Render(c, views.LoginForm(req.Email, "Giriş yapılamadı, lütfen tekrar deneyin."))
 	}
+
 	return httpx.Redirect(c, "/admin")
 }
 
