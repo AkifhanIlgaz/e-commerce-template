@@ -103,7 +103,8 @@ Tek kaynak: **`styles/theme.css`**. Bu dosya Go embed ile (`styles/embed.go` →
 `card-title`, `table`, `alert`
 (+`alert-danger|success`), `modal`, `modal-open`, `modal-box`, `link`,
 `link-primary`, `join`, `join-item`, `stats`, `stat`, `stat-title`,
-`stat-value`, `divider`, `loading`(+`loading-sm`), `skeleton`, `navbar`.
+`stat-value`, `divider`, `loading`(+`loading-sm`), `skeleton`, `navbar`,
+`panel-brand`(yeşil marka paneli, nokta dokulu; üstüne `text-primary-content`).
 
 Eski daisyUI isimlerinden farklılar: `*-error` → `*-danger`,
 `*-secondary` → `*-accent`, `input-bordered` yok (base'e gömülü),

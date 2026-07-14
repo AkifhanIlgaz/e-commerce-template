@@ -12,7 +12,10 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "ecommerce/styles"
+import (
+	"ecommerce/internal/shared/icons"
+	"ecommerce/styles"
+)
 
 // ThemeHead — sırasıyla:
 //  1. FOUC guard: localStorage/sistem tercihine göre .dark class'ını
@@ -80,7 +83,15 @@ func ThemeToggle() templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<button type=\"button\" class=\"btn btn-ghost btn-sm\" aria-label=\"Koyu/açık tema\" onclick=\"window.__toggleTheme()\"><span class=\"dark:hidden\">🌙</span> <span class=\"hidden dark:inline\">☀️</span></button>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<button type=\"button\" class=\"btn btn-ghost btn-sm\" aria-label=\"Koyu/açık tema\" onclick=\"window.__toggleTheme()\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = icons.SunMoon(templ.Attributes{"class": "size-icon-sm"}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

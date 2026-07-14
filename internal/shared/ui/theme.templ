@@ -2,7 +2,10 @@
 // ThemeHead her <head>'e, ThemeToggle ise header'lara konur.
 package ui
 
-import "ecommerce/styles"
+import (
+	"ecommerce/internal/shared/icons"
+	"ecommerce/styles"
+)
 
 // ThemeHead — sırasıyla:
 //  1. FOUC guard: localStorage/sistem tercihine göre .dark class'ını
@@ -34,7 +37,6 @@ templ ThemeHead() {
 // ThemeToggle — light/dark mod düğmesi (navbar'lara konur).
 templ ThemeToggle() {
 	<button type="button" class="btn btn-ghost btn-sm" aria-label="Koyu/açık tema" onclick="window.__toggleTheme()">
-		<span class="dark:hidden">🌙</span>
-		<span class="hidden dark:inline">☀️</span>
+		@icons.SunMoon(templ.Attributes{"class": "size-icon-sm"})
 	</button>
 }

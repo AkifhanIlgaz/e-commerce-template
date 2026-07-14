@@ -584,6 +584,22 @@
 		animation: theme-shimmer 1.5s var(--ease-default) infinite;
 	}
 
+	/* --- Marka paneli (auth/kampanya sayfalarındaki yeşil tanıtım bloğu) ---
+	   İmza doku: primary zemin üzerine primary-content'ten türeyen nokta grid
+	   ("ambalaj kağıdı" hissi). Üzerine yazı her zaman text-primary-content. */
+	.panel-brand {
+		position: relative;
+		overflow: hidden;
+		border-radius: var(--radius-card);
+		background-color: var(--primary);
+		background-image: radial-gradient(
+			color-mix(in oklab, var(--primary-content) 16%, transparent) 1px,
+			transparent 1.5px
+		);
+		background-size: 1.25rem 1.25rem;
+		color: var(--primary-content);
+	}
+
 	/* --- Navbar --- */
 	.navbar {
 		display: flex;

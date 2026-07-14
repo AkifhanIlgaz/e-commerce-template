@@ -1,18 +1,27 @@
 package views
 
-import "ecommerce/internal/core/session"
+import (
+	"strings"
+	"unicode"
+
+	"ecommerce/internal/core/session"
+	"ecommerce/internal/shared/icons"
+	"ecommerce/internal/shared/ui"
+)
 
 // --- Giriş ---
 
 templ LoginPage(storeName, csrf string) {
 	@Layout(storeName, "Giriş", csrf, nil) {
-		@authCard("Giriş yap") {
-			@LoginForm("", "")
-			<div class="divider">veya</div>
-			<p class="text-sm text-ink-muted">
-				Hesabın yok mu?
-				<a href="/register" class="link link-primary">Kayıt ol</a>
-			</p>
+		@authShell("Tekrar merhaba", "Kaldığın yerden devam et.") {
+			@authCard("Giriş yap", "Hesabına e-postan ile giriş yap.") {
+				@LoginForm("", "")
+				<div class="divider"></div>
+				<p class="text-sm text-ink-muted">
+					Hesabın yok mu?
+					<a href="/register" class="link link-primary">Bir dakikada kayıt ol</a>
+				</p>
+			}
 		}
 	}
 }
@@ -22,15 +31,15 @@ templ LoginPage(storeName, csrf string) {
 templ LoginForm(email, errMsg string) {
 	<form hx-post="/login" hx-swap="outerHTML" class="flex flex-col gap-4">
 		@formError(errMsg)
-		<div class="form-control">
+		<div class="form-control gap-1">
 			<label class="label" for="login-email"><span class="label-text">E-posta</span></label>
-			<input id="login-email" class="input" type="email" name="email" value={ email } required autocomplete="email"/>
+			@ui.EmailInput("login-email", email, templ.Attributes{"required": true, "autocomplete": "email"})
 		</div>
-		<div class="form-control">
+		<div class="form-control gap-1">
 			<label class="label" for="login-password"><span class="label-text">Şifre</span></label>
-			<input id="login-password" class="input" type="password" name="password" required autocomplete="current-password"/>
+			@ui.PasswordInput("login-password", templ.Attributes{"required": true, "autocomplete": "current-password"})
 		</div>
-		<button type="submit" class="btn btn-primary w-full">Giriş yap</button>
+		<button type="submit" class="btn btn-primary btn-lg w-full">Giriş yap</button>
 	</form>
 }
 
@@ -38,13 +47,15 @@ templ LoginForm(email, errMsg string) {
 
 templ RegisterPage(storeName, csrf string) {
 	@Layout(storeName, "Kayıt", csrf, nil) {
-		@authCard("Kayıt ol") {
-			@RegisterForm("", "", "")
-			<div class="divider">veya</div>
-			<p class="text-sm text-ink-muted">
-				Zaten hesabın var mı?
-				<a href="/login" class="link link-primary">Giriş yap</a>
-			</p>
+		@authShell("Aramıza katıl", "Bir dakikada hesabını aç.") {
+			@authCard("Kayıt ol", "Sadece adın, e-postan ve bir şifre yeterli.") {
+				@RegisterForm("", "", "")
+				<div class="divider"></div>
+				<p class="text-sm text-ink-muted">
+					Zaten hesabın var mı?
+					<a href="/login" class="link link-primary">Giriş yap</a>
+				</p>
+			}
 		}
 	}
 }
@@ -52,20 +63,20 @@ templ RegisterPage(storeName, csrf string) {
 templ RegisterForm(name, email, errMsg string) {
 	<form hx-post="/register" hx-swap="outerHTML" class="flex flex-col gap-4">
 		@formError(errMsg)
-		<div class="form-control">
+		<div class="form-control gap-1">
 			<label class="label" for="reg-name"><span class="label-text">Ad Soyad</span></label>
-			<input id="reg-name" class="input" type="text" name="name" value={ name } required autocomplete="name"/>
+			@ui.TextInput("reg-name", "name", name, templ.Attributes{"required": true, "autocomplete": "name"})
 		</div>
-		<div class="form-control">
+		<div class="form-control gap-1">
 			<label class="label" for="reg-email"><span class="label-text">E-posta</span></label>
-			<input id="reg-email" class="input" type="email" name="email" value={ email } required autocomplete="email"/>
+			@ui.EmailInput("reg-email", email, templ.Attributes{"required": true, "autocomplete": "email"})
 		</div>
-		<div class="form-control">
+		<div class="form-control gap-1">
 			<label class="label" for="reg-password"><span class="label-text">Şifre</span></label>
-			<input id="reg-password" class="input" type="password" name="password" required minlength="6" autocomplete="new-password"/>
-			<span class="label-text text-ink-muted">En az 6 karakter.</span>
+			@ui.PasswordInput("reg-password", templ.Attributes{"required": true, "minlength": "6", "autocomplete": "new-password"})
+			<span class="text-xs text-ink-muted">En az 6 karakter.</span>
 		</div>
-		<button type="submit" class="btn btn-primary w-full">Kayıt ol</button>
+		<button type="submit" class="btn btn-primary btn-lg w-full">Hesabımı aç</button>
 	</form>
 }
 
@@ -73,43 +84,89 @@ templ RegisterForm(name, email, errMsg string) {
 
 templ AccountPage(storeName, csrf string, sess *session.Session) {
 	@Layout(storeName, "Hesabım", csrf, sess) {
-		<div class="mx-auto max-w-narrow">
-			<div class="card">
-				<div class="card-body">
-					<h1 class="card-title">Hesabım</h1>
-					<dl class="flex flex-col gap-3">
-						<div>
-							<dt class="text-sm text-ink-muted">Ad Soyad</dt>
-							<dd>{ sess.Name }</dd>
-						</div>
-						<div>
-							<dt class="text-sm text-ink-muted">E-posta</dt>
-							<dd>{ sess.Email }</dd>
-						</div>
-					</dl>
-					<div class="divider"></div>
-					<button type="button" class="btn btn-outline w-full" hx-post="/logout">Çıkış yap</button>
+		<div class="mx-auto flex w-full max-w-narrow flex-col gap-6 py-8">
+			<div class="flex items-center gap-4">
+				<span class="flex size-14 shrink-0 items-center justify-center rounded-pill bg-primary font-display text-2xl text-primary-content" aria-hidden="true">
+					{ initial(sess.Name) }
+				</span>
+				<div class="flex flex-col">
+					<h1 class="font-display text-2xl">{ sess.Name }</h1>
+					<p class="text-sm text-ink-muted">Hesap bilgilerin ve oturum ayarların.</p>
 				</div>
 			</div>
+			<div class="card">
+				<dl class="flex flex-col divide-y divide-border">
+					@accountRow("Ad Soyad", sess.Name)
+					@accountRow("E-posta", sess.Email)
+				</dl>
+			</div>
+			<button type="button" class="btn btn-outline w-full" hx-post="/logout">Çıkış yap</button>
 		</div>
 	}
 }
 
+templ accountRow(label, value string) {
+	<div class="flex flex-col gap-1 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+		<dt class="text-sm text-ink-muted">{ label }</dt>
+		<dd class="text-sm font-medium">{ value }</dd>
+	</div>
+}
+
 // --- ortak parçalar ---
 
-templ authCard(title string) {
-	<div class="mx-auto max-w-narrow">
-		<div class="card">
-			<div class="card-body">
-				<h1 class="card-title">{ title }</h1>
-				{ children... }
+// authShell — auth sayfalarının iki kolonlu iskeleti: solda marka paneli
+// (mobilde eyebrow+başlık kalır, avantaj listesi gizlenir), sağda form.
+templ authShell(eyebrow, headline string) {
+	<div class="mx-auto grid w-full max-w-content gap-6 py-4 lg:grid-cols-[5fr_4fr] lg:gap-10 lg:py-12">
+		<section class="panel-brand flex flex-col justify-between gap-10 p-8 lg:p-12">
+			<div class="flex flex-col gap-3">
+				<span class="text-xs font-semibold uppercase tracking-wide">{ eyebrow }</span>
+				<h2 class="font-display text-3xl leading-tight">{ headline }</h2>
 			</div>
+			<ul class="hidden flex-col gap-4 lg:flex">
+				@benefit("Siparişlerini adım adım takip et")
+				@benefit("Adreslerin ve tercihlerin kayıtlı kalsın")
+				@benefit("Üyelere özel kampanyaları ilk sen duy")
+			</ul>
+		</section>
+		<div class="flex flex-col justify-center">
+			{ children... }
+		</div>
+	</div>
+}
+
+// benefit — marka panelindeki "alışveriş listesi" satırı.
+templ benefit(text string) {
+	<li class="flex items-start gap-3">
+		@icons.Check(templ.Attributes{"class": "mt-1 size-icon-sm shrink-0"})
+		<span class="text-sm leading-relaxed">{ text }</span>
+	</li>
+}
+
+templ authCard(title, subtitle string) {
+	<div class="card w-full">
+		<div class="card-body gap-4 p-8">
+			<div class="flex flex-col gap-1">
+				<h1 class="card-title text-2xl">{ title }</h1>
+				<p class="text-sm text-ink-muted">{ subtitle }</p>
+			</div>
+			{ children... }
 		</div>
 	</div>
 }
 
 templ formError(msg string) {
 	if msg != "" {
-		<div class="alert alert-danger" role="alert">{ msg }</div>
+		<div class="alert alert-danger text-sm" role="alert">{ msg }</div>
 	}
+}
+
+// initial, avatar için ismin ilk harfini Türkçe kurallarına göre büyütür.
+func initial(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "?"
+	}
+	r := []rune(name)
+	return strings.ToUpperSpecial(unicode.TurkishCase, string(r[0]))
 }

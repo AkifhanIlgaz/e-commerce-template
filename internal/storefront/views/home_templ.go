@@ -51,7 +51,7 @@ func Home(storeName, csrf string, sess *session.Session) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(storeName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/storefront/views/home.templ`, Line: 9, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/storefront/views/home.templ`, Line: 11, Col: 48}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -69,7 +69,7 @@ func Home(storeName, csrf string, sess *session.Session) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(sess.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/storefront/views/home.templ`, Line: 11, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/storefront/views/home.templ`, Line: 13, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {

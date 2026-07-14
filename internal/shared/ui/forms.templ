@@ -1,0 +1,51 @@
+package ui
+
+import "ecommerce/internal/shared/icons"
+
+// TextInput — düz metin input'u. name forma göre değişir; required/
+// autocomplete gibi ekstra öznitelikler attrs ile geçilir.
+templ TextInput(id, name, value string, attrs templ.Attributes) {
+	<input id={ id } class="input w-full" type="text" name={ name } value={ value } { attrs... }/>
+}
+
+// EmailInput — e-posta input'u; name her zaman "email". Ekstra öznitelikler
+// attrs ile geçilir.
+templ EmailInput(id, value string, attrs templ.Attributes) {
+	<input id={ id } class="input w-full" type="email" name="email" value={ value } placeholder="ornek@eposta.com" { attrs... }/>
+}
+
+// PasswordInput — sağ tarafında göster/gizle butonu olan şifre input'u.
+// name her zaman "password"; required/minlength/autocomplete gibi ekstra
+// öznitelikler attrs ile geçilir. Script, htmx swap'larında da çalışsın diye
+// delege edilmiş click listener olarak bir kez kurulur (window guard).
+templ PasswordInput(id string, attrs templ.Attributes) {
+	<div class="relative" data-password-field>
+		<input id={ id } class="input w-full pe-12" type="password" name="password" { attrs... }/>
+		<button
+			type="button"
+			class="btn btn-ghost btn-xs absolute end-2 top-1/2 -translate-y-1/2 px-1 text-ink-muted"
+			data-password-toggle
+			aria-label="Şifreyi göster"
+			aria-pressed="false"
+		>
+			@icons.Eye(templ.Attributes{"class": "size-icon-sm ", "data-icon-eye": true})
+			@icons.EyeOff(templ.Attributes{"class": "hidden size-icon-sm ", "data-icon-eye-off": true})
+		</button>
+	</div>
+	<script>
+		if (!window.__passwordToggleInit) {
+			window.__passwordToggleInit = true;
+			document.addEventListener("click", function (e) {
+				var btn = e.target.closest("[data-password-toggle]");
+				if (!btn) return;
+				var input = btn.closest("[data-password-field]").querySelector("input");
+				var show = input.type === "password";
+				input.type = show ? "text" : "password";
+				btn.setAttribute("aria-pressed", String(show));
+				btn.setAttribute("aria-label", show ? "Şifreyi gizle" : "Şifreyi göster");
+				btn.querySelector("[data-icon-eye]").classList.toggle("hidden", show);
+				btn.querySelector("[data-icon-eye-off]").classList.toggle("hidden", !show);
+			});
+		}
+	</script>
+}
