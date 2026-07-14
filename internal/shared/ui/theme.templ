@@ -1,0 +1,40 @@
+// Package ui — storefront ve admin'in ortak tema altyapısı.
+// ThemeHead her <head>'e, ThemeToggle ise header'lara konur.
+package ui
+
+import "ecommerce/styles"
+
+// ThemeHead — sırasıyla:
+//  1. FOUC guard: localStorage/sistem tercihine göre .dark class'ını
+//     render'dan ÖNCE set eder (sayfa yanlış temayla "yanıp sönmesin").
+//     Kullanıcı manuel seçim yaptıysa localStorage öncelikli, yoksa
+//     prefers-color-scheme kullanılır.
+//  2. styles/theme.css (Go embed) — Tailwind browser build bu bloğu işler.
+//  3. Tailwind v4 browser build script'i.
+templ ThemeHead() {
+	<script>
+		(function () {
+			var pref = localStorage.getItem("theme");
+			var dark = pref ? pref === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+			document.documentElement.classList.toggle("dark", dark);
+			window.__toggleTheme = function () {
+				var d = document.documentElement.classList.toggle("dark");
+				localStorage.setItem("theme", d ? "dark" : "light");
+			};
+		})();
+	</script>
+	<!-- Marka fontları: Fraunces (başlık/display) + Manrope (gövde) -->
+	<link rel="preconnect" href="https://fonts.googleapis.com"/>
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600&display=swap"/>
+	@templ.Raw("<style type=\"text/tailwindcss\">\n" + styles.ThemeCSS + "\n</style>")
+	<script src="/static/js/tailwind-browser.js"></script>
+}
+
+// ThemeToggle — light/dark mod düğmesi (navbar'lara konur).
+templ ThemeToggle() {
+	<button type="button" class="btn btn-ghost btn-sm" aria-label="Koyu/açık tema" onclick="window.__toggleTheme()">
+		<span class="dark:hidden">🌙</span>
+		<span class="hidden dark:inline">☀️</span>
+	</button>
+}

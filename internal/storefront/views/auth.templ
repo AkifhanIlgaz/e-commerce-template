@@ -1,40 +1,115 @@
-// MÜŞTERİYE GÖRE DÜZENLE — Müşteri giriş/kayıt sayfaları.
 package views
 
-templ CustomerLogin(d LayoutData, errMsg string) {
-	@Layout("Giriş", d) {
-		<div class="max-w-sm mx-auto card bg-base-100 shadow p-6">
-			<h1 class="text-xl font-bold mb-4">Giriş Yap</h1>
-			if errMsg != "" {
-				<div class="alert alert-error text-sm mb-3">{ errMsg }</div>
-			}
-			<form method="post" action="/login" class="flex flex-col gap-3">
-				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
-				<input type="email" name="email" placeholder="E-posta" class="input input-bordered w-full" required/>
-				<input type="password" name="password" placeholder="Şifre" class="input input-bordered w-full" required/>
-				<button type="submit" class="btn btn-primary w-full">Giriş Yap</button>
-			</form>
-			<p class="text-sm mt-4 text-center">
-				Hesabınız yok mu? <a href="/register" class="link link-primary">Kayıt olun</a>
+import "ecommerce/internal/core/session"
+
+// --- Giriş ---
+
+templ LoginPage(storeName, csrf string) {
+	@Layout(storeName, "Giriş", csrf, nil) {
+		@authCard("Giriş yap") {
+			@LoginForm("", "")
+			<div class="divider">veya</div>
+			<p class="text-sm text-ink-muted">
+				Hesabın yok mu?
+				<a href="/register" class="link link-primary">Kayıt ol</a>
 			</p>
+		}
+	}
+}
+
+// LoginForm — htmx fragment'ı: hata durumunda handler bu component'i
+// outerHTML swap ile yeniden render eder, başarıda HX-Redirect döner.
+templ LoginForm(email, errMsg string) {
+	<form hx-post="/login" hx-swap="outerHTML" class="flex flex-col gap-4">
+		@formError(errMsg)
+		<div class="form-control">
+			<label class="label" for="login-email"><span class="label-text">E-posta</span></label>
+			<input id="login-email" class="input" type="email" name="email" value={ email } required autocomplete="email"/>
+		</div>
+		<div class="form-control">
+			<label class="label" for="login-password"><span class="label-text">Şifre</span></label>
+			<input id="login-password" class="input" type="password" name="password" required autocomplete="current-password"/>
+		</div>
+		<button type="submit" class="btn btn-primary w-full">Giriş yap</button>
+	</form>
+}
+
+// --- Kayıt ---
+
+templ RegisterPage(storeName, csrf string) {
+	@Layout(storeName, "Kayıt", csrf, nil) {
+		@authCard("Kayıt ol") {
+			@RegisterForm("", "", "")
+			<div class="divider">veya</div>
+			<p class="text-sm text-ink-muted">
+				Zaten hesabın var mı?
+				<a href="/login" class="link link-primary">Giriş yap</a>
+			</p>
+		}
+	}
+}
+
+templ RegisterForm(name, email, errMsg string) {
+	<form hx-post="/register" hx-swap="outerHTML" class="flex flex-col gap-4">
+		@formError(errMsg)
+		<div class="form-control">
+			<label class="label" for="reg-name"><span class="label-text">Ad Soyad</span></label>
+			<input id="reg-name" class="input" type="text" name="name" value={ name } required autocomplete="name"/>
+		</div>
+		<div class="form-control">
+			<label class="label" for="reg-email"><span class="label-text">E-posta</span></label>
+			<input id="reg-email" class="input" type="email" name="email" value={ email } required autocomplete="email"/>
+		</div>
+		<div class="form-control">
+			<label class="label" for="reg-password"><span class="label-text">Şifre</span></label>
+			<input id="reg-password" class="input" type="password" name="password" required minlength="6" autocomplete="new-password"/>
+			<span class="label-text text-ink-muted">En az 6 karakter.</span>
+		</div>
+		<button type="submit" class="btn btn-primary w-full">Kayıt ol</button>
+	</form>
+}
+
+// --- Hesabım ---
+
+templ AccountPage(storeName, csrf string, sess *session.Session) {
+	@Layout(storeName, "Hesabım", csrf, sess) {
+		<div class="mx-auto max-w-narrow">
+			<div class="card">
+				<div class="card-body">
+					<h1 class="card-title">Hesabım</h1>
+					<dl class="flex flex-col gap-3">
+						<div>
+							<dt class="text-sm text-ink-muted">Ad Soyad</dt>
+							<dd>{ sess.Name }</dd>
+						</div>
+						<div>
+							<dt class="text-sm text-ink-muted">E-posta</dt>
+							<dd>{ sess.Email }</dd>
+						</div>
+					</dl>
+					<div class="divider"></div>
+					<button type="button" class="btn btn-outline w-full" hx-post="/logout">Çıkış yap</button>
+				</div>
+			</div>
 		</div>
 	}
 }
 
-templ CustomerRegister(d LayoutData, errMsg string) {
-	@Layout("Kayıt Ol", d) {
-		<div class="max-w-sm mx-auto card bg-base-100 shadow p-6">
-			<h1 class="text-xl font-bold mb-4">Kayıt Ol</h1>
-			if errMsg != "" {
-				<div class="alert alert-error text-sm mb-3">{ errMsg }</div>
-			}
-			<form method="post" action="/register" class="flex flex-col gap-3">
-				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
-				<input type="text" name="name" placeholder="Ad Soyad" class="input input-bordered w-full" required/>
-				<input type="email" name="email" placeholder="E-posta" class="input input-bordered w-full" required/>
-				<input type="password" name="password" placeholder="Şifre (en az 6 karakter)" class="input input-bordered w-full" required/>
-				<button type="submit" class="btn btn-primary w-full">Kayıt Ol</button>
-			</form>
+// --- ortak parçalar ---
+
+templ authCard(title string) {
+	<div class="mx-auto max-w-narrow">
+		<div class="card">
+			<div class="card-body">
+				<h1 class="card-title">{ title }</h1>
+				{ children... }
+			</div>
 		</div>
+	</div>
+}
+
+templ formError(msg string) {
+	if msg != "" {
+		<div class="alert alert-danger" role="alert">{ msg }</div>
 	}
 }

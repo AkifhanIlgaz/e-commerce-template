@@ -1,0 +1,42 @@
+package views
+
+import "ecommerce/internal/core/session"
+
+templ LoginPage(csrf string) {
+	@Layout("Giriş", csrf, nil) {
+		<div class="mx-auto max-w-narrow">
+			<div class="card">
+				<div class="card-body">
+					<h1 class="card-title">Admin girişi</h1>
+					@LoginForm("", "")
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// LoginForm — htmx fragment'ı; hata durumunda outerHTML swap ile yenilenir.
+templ LoginForm(email, errMsg string) {
+	<form hx-post="/admin/login" hx-swap="outerHTML" class="flex flex-col gap-4">
+		if errMsg != "" {
+			<div class="alert alert-danger" role="alert">{ errMsg }</div>
+		}
+		<div class="form-control">
+			<label class="label" for="admin-email"><span class="label-text">E-posta</span></label>
+			<input id="admin-email" class="input" type="email" name="email" value={ email } required autocomplete="email"/>
+		</div>
+		<div class="form-control">
+			<label class="label" for="admin-password"><span class="label-text">Şifre</span></label>
+			<input id="admin-password" class="input" type="password" name="password" required autocomplete="current-password"/>
+		</div>
+		<button type="submit" class="btn btn-primary w-full">Giriş yap</button>
+	</form>
+}
+
+// Dashboard — yer tutucu; gerçek panel sonraki adımlarda dolacak.
+templ Dashboard(csrf string, sess *session.Session) {
+	@Layout("Panel", csrf, sess) {
+		<h1 class="font-display text-2xl">Panel</h1>
+		<p class="mt-2 text-ink-muted">Hoş geldin, { sess.Name }. Modüller sonraki adımlarda eklenecek.</p>
+	}
+}

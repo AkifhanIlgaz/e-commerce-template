@@ -1,0 +1,604 @@
+/* ============================================================
+   DESIGN TOKEN SİSTEMİ — styles/theme.css
+   ============================================================
+   Tailwind v4 (browser build) bu dosyayı <style type="text/tailwindcss">
+   bloğu olarak işler (Go embed ile layout'lara gömülür, bkz. styles/embed.go
+   ve internal/shared/ui/theme.templ).
+
+   KURALLAR (detay: CLAUDE.md → "Tasarım Sistemi Kuralları"):
+   - Component'lerde ham renk/boyut/font class'ı YASAK; sadece buradaki
+     token'lardan türeyen semantic class'lar kullanılır.
+   - Yeni görsel ihtiyaç önce buraya token olarak eklenir, sonra kullanılır.
+   - bg-X üzerine yazı her zaman text-X-content ile yazılır.
+   ============================================================ */
+
+/* Dark mode: <html class="dark"> ile açılır (localStorage + FOUC guard,
+   bkz. internal/shared/ui/theme.templ). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   1) MOD'DAN BAĞIMSIZ TOKEN'LAR — tek sefer, @theme içinde
+   ============================================================ */
+@theme {
+	/* --- Font aileleri (Google Fonts <link>'i ThemeHead'de) --- */
+	--font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-display: "Fraunces", ui-serif, Georgia, serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+	/* --- Text boyut skalası (default skala silinir; sadece bunlar var) --- */
+	--text-*: initial;
+	--text-xs: 0.75rem;
+	--text-xs--line-height: 1rem;
+	--text-sm: 0.875rem;
+	--text-sm--line-height: 1.25rem;
+	--text-base: 1rem;
+	--text-base--line-height: 1.5rem;
+	--text-lg: 1.125rem;
+	--text-lg--line-height: 1.75rem;
+	--text-xl: 1.25rem;
+	--text-xl--line-height: 1.75rem;
+	--text-2xl: 1.5rem;
+	--text-2xl--line-height: 2rem;
+	--text-3xl: 2rem;
+	--text-3xl--line-height: 2.375rem;
+
+	/* --- Font weight (SADECE bu üçü; font-bold vs. artık yok) --- */
+	--font-weight-*: initial;
+	--font-weight-normal: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+
+	/* --- Line-height --- */
+	--leading-*: initial;
+	--leading-tight: 1.25;
+	--leading-normal: 1.5;
+	--leading-relaxed: 1.7;
+
+	/* --- Letter-spacing (wide: uppercase label'lar için) --- */
+	--tracking-*: initial;
+	--tracking-tight: -0.02em;
+	--tracking-normal: 0em;
+	--tracking-wide: 0.08em;
+
+	/* --- Radius skalası (default skala silinir) --- */
+	--radius-*: initial;
+	--radius-control: 0.5rem; /* input, buton */
+	--radius-card: 1rem;      /* kart, modal */
+	--radius-pill: 9999px;    /* badge, avatar */
+
+	/* --- Border width --- */
+	--border-width-thin: 1px;
+	--border-width-thick: 2px;
+
+	/* --- Transition --- */
+	--duration-fast: 120ms;
+	--duration-base: 200ms;
+	--ease-*: initial;
+	--ease-default: cubic-bezier(0.2, 0, 0, 1);
+	--default-transition-duration: 200ms;
+	--default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+
+	/* --- Interaction state'leri (merkezi; component koduna hover:opacity-90
+	   gibi hardcoded değer YAZILMAZ, hepsi bu token'lara referans verir) --- */
+	--opacity-hover: 0.9;      /* hover'da soluklaşma */
+	--opacity-disabled: 0.5;   /* disabled görünümü */
+	--opacity-loading: 0.6;    /* htmx isteği / yükleniyor durumu */
+	--scale-active: 0.97;      /* basılı (active) küçülmesi */
+	--ring-width: 2px;         /* focus-visible ring kalınlığı */
+	--ring-offset: 2px;        /* focus-visible ring boşluğu */
+
+	/* --- Z-index skalası (sayısal çakışma önlemek için merkezi) --- */
+	--z-sticky: 30;   /* sticky navbar */
+	--z-dropdown: 40;
+	--z-modal: 50;
+	--z-toast: 60;
+	--z-tooltip: 70;
+
+	/* --- Component-specific spacing --- */
+	--spacing-control-y: 0.5rem;
+	--spacing-control-x: 1rem;
+	--spacing-card: 1.5rem;
+
+	/* --- Icon boyutları (size-icon-sm gibi kullanılır) --- */
+	--spacing-icon-sm: 1rem;     /* 16px */
+	--spacing-icon-base: 1.25rem; /* 20px */
+	--spacing-icon-lg: 1.5rem;   /* 24px */
+
+	/* --- Sabit layout genişlikleri (max-w-content / max-w-narrow) --- */
+	--container-content: 72rem;
+	--container-narrow: 36rem;
+}
+
+/* ============================================================
+   2) MOD'A BAĞIMLI TOKEN'LAR — :root (light) ve .dark ayrı ayrı
+   ============================================================ */
+/* Palet konsepti: "butik bakkal" — güven veren şişe yeşili (CTA / marka),
+   kampanya-indirim işleri için kızıl turuncu accent, kağıt hissi veren sıcak
+   zeminler. Dark mode nötr gri değil, yeşile çalan sıcak koyu tonlar. */
+:root {
+	color-scheme: light;
+
+	/* Renkler: semantic + content (üzerine yazılacak metin) çiftleri */
+	--primary: #146c43;         /* şişe yeşili — Sepete Ekle, marka, linkler */
+	--primary-content: #ffffff;
+	--accent: #c2410c;          /* kampanya/indirim vurgusu */
+	--accent-content: #ffffff;
+	--success: #15803d;
+	--success-content: #ffffff;
+	--danger: #dc2626;
+	--danger-content: #ffffff;
+	--warning: #b45309;
+	--warning-content: #ffffff;
+
+	/* Zemin katmanları (sıcak kağıt tonu) */
+	--surface: #ffffff;     /* kart / öne çıkan zemin */
+	--surface-alt: #f6f3ec; /* sayfa zemini / ikincil zemin */
+
+	/* Metin (sıcak, hafif yeşile çalan koyu) */
+	--ink: #20261f;
+	--ink-muted: #5c6556;
+
+	/* Kenarlık */
+	--border-c: #e6e1d4;
+
+	/* Gölge (light'ta belirgin, sıcak tonlu) */
+	--elev-card: 0 1px 2px rgb(38 44 34 / 0.06), 0 1px 3px rgb(38 44 34 / 0.08);
+	--elev-popover: 0 4px 6px -1px rgb(38 44 34 / 0.1), 0 10px 15px -3px rgb(38 44 34 / 0.1);
+	--elev-modal: 0 25px 50px -12px rgb(38 44 34 / 0.25);
+
+	/* Overlay / backdrop */
+	--overlay: rgb(24 30 22 / 0.45);
+
+	/* Focus ring */
+	--ring-color: #146c43;
+
+	/* Skeleton / loading */
+	--skeleton-base: #e9e4d6;
+	--skeleton-highlight: #f4f0e5;
+}
+
+.dark {
+	color-scheme: dark;
+
+	--primary: #56c894;         /* nane yeşili — koyu zeminde CTA */
+	--primary-content: #07301c;
+	--accent: #fb923c;
+	--accent-content: #431407;
+	--success: #4ade80;
+	--success-content: #052e16;
+	--danger: #f87171;
+	--danger-content: #450a0a;
+	--warning: #fbbf24;
+	--warning-content: #451a03;
+
+	/* Yeşile çalan sıcak koyu zeminler */
+	--surface: #1a221c;
+	--surface-alt: #0f1511;
+
+	--ink: #eef0e7;
+	--ink-muted: #9fa896;
+
+	--border-c: #2b342b;
+
+	/* Gölge (dark'ta hafif + border-ağırlıklı) */
+	--elev-card: 0 0 0 1px rgb(255 255 255 / 0.05);
+	--elev-popover: 0 0 0 1px rgb(255 255 255 / 0.06), 0 8px 24px rgb(0 0 0 / 0.5);
+	--elev-modal: 0 0 0 1px rgb(255 255 255 / 0.06), 0 25px 50px -12px rgb(0 0 0 / 0.7);
+
+	--overlay: rgb(0 0 0 / 0.65);
+
+	--ring-color: #7edcb0;
+
+	--skeleton-base: #242d24;
+	--skeleton-highlight: #334033;
+}
+
+/* ============================================================
+   3) SEMANTIC İSİMLERE BAĞLAMA — utility üretimi
+   (bg-primary, text-ink, border-border, shadow-card, ring-ring...)
+   Default Tailwind paleti SİLİNİR: bg-blue-600 gibi class'lar üretilmez.
+   ============================================================ */
+@theme inline {
+	--color-*: initial;
+	--color-primary: var(--primary);
+	--color-primary-content: var(--primary-content);
+	--color-accent: var(--accent);
+	--color-accent-content: var(--accent-content);
+	--color-success: var(--success);
+	--color-success-content: var(--success-content);
+	--color-danger: var(--danger);
+	--color-danger-content: var(--danger-content);
+	--color-warning: var(--warning);
+	--color-warning-content: var(--warning-content);
+	--color-surface: var(--surface);
+	--color-surface-alt: var(--surface-alt);
+	--color-ink: var(--ink);
+	--color-ink-muted: var(--ink-muted);
+	--color-border: var(--border-c);
+	--color-ring: var(--ring-color);
+	--color-overlay: var(--overlay);
+	--color-skeleton-base: var(--skeleton-base);
+	--color-skeleton-highlight: var(--skeleton-highlight);
+
+	--shadow-*: initial;
+	--shadow-card: var(--elev-card);
+	--shadow-popover: var(--elev-popover);
+	--shadow-modal: var(--elev-modal);
+}
+
+/* --- Namespace'i olmayan token'lar için utility'ler --- */
+@utility z-sticky { z-index: var(--z-sticky); }
+@utility z-dropdown { z-index: var(--z-dropdown); }
+@utility z-modal { z-index: var(--z-modal); }
+@utility z-toast { z-index: var(--z-toast); }
+@utility z-tooltip { z-index: var(--z-tooltip); }
+@utility border-thin { border-width: var(--border-width-thin); }
+@utility border-thick { border-width: var(--border-width-thick); }
+@utility duration-fast { transition-duration: var(--duration-fast); }
+@utility duration-base { transition-duration: var(--duration-base); }
+
+/* ============================================================
+   4) BASE
+   ============================================================ */
+@layer base {
+	body {
+		background-color: var(--surface-alt);
+		color: var(--ink);
+		font-family: var(--font-sans);
+		font-size: var(--text-base);
+		line-height: var(--leading-normal);
+		/* Fiyat/tablolarda rakamlar hizalı otursun */
+		font-feature-settings: "tnum" 1;
+	}
+	/* Başlıklar display (serif) yüzle — mağazanın kimliği */
+	h1, h2, h3 {
+		font-family: var(--font-display);
+		letter-spacing: var(--tracking-tight);
+	}
+	::selection {
+		background: color-mix(in oklab, var(--primary) 25%, transparent);
+	}
+}
+
+/* ============================================================
+   5) COMPONENT KATMANI — tamamı yukarıdaki token'lardan türetilir.
+   Component'lerde kullanılabilecek class envanteri budur.
+   ============================================================ */
+@layer components {
+	/* --- Buton --- */
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		padding: var(--spacing-control-y) var(--spacing-control-x);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-medium);
+		line-height: var(--leading-tight);
+		/* İmza dokunuş: butonlar pill formda (input'lar radius-control'de kalır) */
+		border-radius: var(--radius-pill);
+		border: var(--border-width-thin) solid var(--border-c);
+		background: var(--surface);
+		color: var(--ink);
+		cursor: pointer;
+		text-decoration: none;
+		white-space: nowrap;
+		transition:
+			opacity var(--duration-fast) var(--ease-default),
+			scale var(--duration-fast) var(--ease-default),
+			background-color var(--duration-fast) var(--ease-default),
+			color var(--duration-fast) var(--ease-default);
+		/* :not(:disabled) guard'ları disabled'da hover/active efektini iptal eder */
+		&:hover:not(:disabled) { opacity: var(--opacity-hover); }
+		&:active:not(:disabled) { scale: var(--scale-active); }
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); }
+		&:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+		/* htmx isteği devam ederken (htmx-request class'ını htmx ekler) */
+		&.htmx-request { opacity: var(--opacity-loading); pointer-events: none; }
+	}
+	.btn-primary { background: var(--primary); color: var(--primary-content); border-color: transparent; }
+	.btn-accent { background: var(--accent); color: var(--accent-content); border-color: transparent; }
+	.btn-success { background: var(--success); color: var(--success-content); border-color: transparent; }
+	.btn-danger { background: var(--danger); color: var(--danger-content); border-color: transparent; }
+	.btn-ghost {
+		background: transparent;
+		border-color: transparent;
+		color: inherit;
+		&:hover:not(:disabled) {
+			background: color-mix(in oklab, var(--ink) 8%, transparent);
+		}
+	}
+	.btn-outline { background: transparent; }
+	.btn-outline.btn-danger {
+		color: var(--danger);
+		border-color: var(--danger);
+		&:hover:not(:disabled) { background: var(--danger); color: var(--danger-content); }
+	}
+	.btn-active { background: var(--primary); color: var(--primary-content); border-color: transparent; }
+	.btn-active:disabled { opacity: 1; cursor: default; }
+	.btn-xs { padding: 0.125rem 0.5rem; font-size: var(--text-xs); }
+	.btn-sm { padding: 0.25rem 0.75rem; font-size: var(--text-sm); }
+	.btn-lg { padding: 0.75rem 1.5rem; font-size: var(--text-base); }
+
+	/* --- Badge --- */
+	.badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.625rem;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		line-height: var(--leading-normal);
+		border-radius: var(--radius-pill);
+		border: var(--border-width-thin) solid var(--border-c);
+		background: var(--surface);
+		color: var(--ink);
+	}
+	.badge-primary { background: var(--primary); color: var(--primary-content); border-color: transparent; }
+	.badge-accent { background: var(--accent); color: var(--accent-content); border-color: transparent; }
+	.badge-success { background: var(--success); color: var(--success-content); border-color: transparent; }
+	.badge-warning { background: var(--warning); color: var(--warning-content); border-color: transparent; }
+	.badge-danger { background: var(--danger); color: var(--danger-content); border-color: transparent; }
+	.badge-ghost { background: var(--surface-alt); color: var(--ink-muted); border-color: transparent; }
+	.badge-sm { padding: 0.0625rem 0.5rem; }
+	.badge-lg { padding: 0.375rem 0.875rem; font-size: var(--text-sm); }
+
+	/* --- Form elemanları --- */
+	.input, .select, .textarea {
+		background: var(--surface);
+		color: var(--ink);
+		border: var(--border-width-thin) solid var(--border-c);
+		border-radius: var(--radius-control);
+		padding: var(--spacing-control-y) var(--spacing-control-x);
+		font-size: var(--text-sm);
+		line-height: var(--leading-normal);
+		transition:
+			border-color var(--duration-fast) var(--ease-default),
+			box-shadow var(--duration-fast) var(--ease-default);
+		&::placeholder { color: var(--ink-muted); }
+		/* focus değil focus-visible: mouse tıklamasında gereksiz ring çıkmaz
+		   (text input'larda tarayıcı klavye girişini zaten focus-visible sayar) */
+		&:focus-visible {
+			outline: none;
+			border-color: var(--ring-color);
+			box-shadow: 0 0 0 var(--ring-width) color-mix(in oklab, var(--ring-color) 25%, transparent);
+		}
+		&:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+	}
+	.input-sm, .select-sm { padding: 0.25rem 0.625rem; }
+	.checkbox {
+		accent-color: var(--primary);
+		width: 1.25rem;
+		height: 1.25rem;
+		cursor: pointer;
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); }
+		&:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+	}
+	.checkbox-sm { width: 1rem; height: 1rem; }
+	.toggle {
+		appearance: none;
+		position: relative;
+		width: 2.5rem;
+		height: 1.5rem;
+		border-radius: var(--radius-pill);
+		background: var(--border-c);
+		border: var(--border-width-thin) solid var(--border-c);
+		cursor: pointer;
+		transition: background-color var(--duration-fast) var(--ease-default);
+		&::after {
+			content: "";
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			width: calc(1.5rem - 6px);
+			aspect-ratio: 1;
+			border-radius: var(--radius-pill);
+			background: var(--surface);
+			box-shadow: var(--elev-card);
+			transition: translate var(--duration-fast) var(--ease-default);
+		}
+		&:checked { background: var(--primary); border-color: var(--primary); }
+		&:checked::after { translate: 1rem 0; }
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); }
+		&:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+	}
+	.toggle-sm {
+		width: 2rem;
+		height: 1.25rem;
+		&::after { width: calc(1.25rem - 6px); }
+		&:checked::after { translate: 0.75rem 0; }
+	}
+	.form-control { display: flex; flex-direction: column; }
+	.label { display: flex; align-items: center; gap: 0.5rem; }
+	.label-text { font-size: var(--text-sm); color: var(--ink); }
+
+	/* --- Kart --- */
+	.card {
+		background: var(--surface);
+		color: var(--ink);
+		border-radius: var(--radius-card);
+		box-shadow: var(--elev-card);
+	}
+	/* Tıklanabilir kartlar (ürün kartı vb.): hover'da yükselme.
+	   Component'e hover:shadow-* / hover:-translate-* yazılmaz, bu class kullanılır. */
+	.card-hover {
+		cursor: pointer;
+		transition:
+			box-shadow var(--duration-base) var(--ease-default),
+			translate var(--duration-base) var(--ease-default);
+		&:hover { box-shadow: var(--elev-popover); translate: 0 -2px; }
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); }
+	}
+	.card-body { padding: var(--spacing-card); display: flex; flex-direction: column; gap: 0.5rem; }
+	.card-title { font-size: var(--text-lg); font-weight: var(--font-weight-semibold); font-family: var(--font-display); }
+
+	/* --- Tablo --- */
+	.table {
+		width: 100%;
+		font-size: var(--text-sm);
+		border-collapse: collapse;
+		text-align: left;
+	}
+	.table th {
+		padding: 0.75rem 1rem;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--ink-muted);
+	}
+	.table td {
+		padding: 0.75rem 1rem;
+		border-top: var(--border-width-thin) solid var(--border-c);
+	}
+
+	/* --- Alert --- */
+	.alert {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius-control);
+		border: var(--border-width-thin) solid var(--border-c);
+		background: var(--surface-alt);
+		color: var(--ink);
+	}
+	.alert-danger {
+		background: color-mix(in oklab, var(--danger) 12%, var(--surface));
+		border-color: color-mix(in oklab, var(--danger) 30%, var(--surface));
+		color: var(--danger);
+	}
+	.alert-success {
+		background: color-mix(in oklab, var(--success) 12%, var(--surface));
+		border-color: color-mix(in oklab, var(--success) 30%, var(--surface));
+		color: var(--success);
+	}
+
+	/* --- Modal --- */
+	.modal {
+		position: fixed;
+		inset: 0;
+		z-index: var(--z-modal);
+		display: none;
+		place-items: center;
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		border: 0;
+		margin: 0;
+		padding: 1rem;
+		background: var(--overlay);
+	}
+	.modal-open { display: grid; }
+	.modal-box {
+		background: var(--surface);
+		color: var(--ink);
+		border-radius: var(--radius-card);
+		box-shadow: var(--elev-modal);
+		padding: var(--spacing-card);
+		width: 100%;
+		max-width: 28rem;
+	}
+
+	/* --- Link --- */
+	.link {
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		transition: opacity var(--duration-fast) var(--ease-default);
+		&:hover { opacity: var(--opacity-hover); }
+		&:focus-visible { outline: var(--ring-width) solid var(--ring-color); outline-offset: var(--ring-offset); border-radius: var(--radius-control); }
+	}
+	.link-primary { color: var(--primary); }
+
+	/* --- Join (input+buton grupları, pagination) --- */
+	.join { display: inline-flex; align-items: stretch; }
+	.join .join-item { border-radius: 0; }
+	.join .join-item + .join-item { margin-inline-start: calc(var(--border-width-thin) * -1); }
+	.join .join-item:first-child {
+		border-start-start-radius: var(--radius-control);
+		border-end-start-radius: var(--radius-control);
+	}
+	.join .join-item:last-child {
+		border-start-end-radius: var(--radius-control);
+		border-end-end-radius: var(--radius-control);
+	}
+
+	/* --- Stats (admin dashboard) --- */
+	.stats {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		background: var(--surface);
+		border-radius: var(--radius-card);
+		box-shadow: var(--elev-card);
+		overflow-x: auto;
+	}
+	.stat {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 1rem 1.5rem;
+		border-inline-start: var(--border-width-thin) solid var(--border-c);
+	}
+	.stat:first-child { border-inline-start: 0; }
+	.stat-title { font-size: var(--text-sm); color: var(--ink-muted); }
+	.stat-value { font-size: var(--text-2xl); font-weight: var(--font-weight-semibold); font-family: var(--font-display); }
+
+	/* --- Divider --- */
+	.divider {
+		display: flex;
+		align-items: center;
+		height: 1rem;
+	}
+	.divider::before {
+		content: "";
+		flex: 1;
+		height: var(--border-width-thin);
+		background: var(--border-c);
+	}
+
+	/* --- Loading spinner --- */
+	.loading {
+		display: inline-block;
+		width: 1.5rem;
+		aspect-ratio: 1;
+		border-radius: var(--radius-pill);
+		border: var(--border-width-thick) solid currentColor;
+		border-inline-end-color: transparent;
+		animation: theme-spin 0.8s linear infinite;
+	}
+	.loading-sm { width: 1.25rem; }
+
+	/* --- Skeleton (yükleniyor placeholder'ı) --- */
+	.skeleton {
+		border-radius: var(--radius-control);
+		background: linear-gradient(
+			90deg,
+			var(--skeleton-base) 25%,
+			var(--skeleton-highlight) 50%,
+			var(--skeleton-base) 75%
+		);
+		background-size: 200% 100%;
+		animation: theme-shimmer 1.5s var(--ease-default) infinite;
+	}
+
+	/* --- Navbar --- */
+	.navbar {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		min-height: 3.5rem;
+		padding: 0.5rem 1rem;
+	}
+}
+
+@keyframes theme-spin {
+	to { transform: rotate(360deg); }
+}
+
+@keyframes theme-shimmer {
+	to { background-position: -200% 0; }
+}
