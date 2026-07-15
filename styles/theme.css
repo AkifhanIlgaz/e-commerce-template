@@ -456,6 +456,33 @@
 		&:hover { background: color-mix(in oklab, var(--surface-alt) 55%, var(--surface)); }
 	}
 
+	/* --- Tablo: defter varyantı (admin CRUD listeleri) ---
+	   Kart kutusu YOK; tablo sayfa zeminiyle bütünleşir. Kalın (ink) başlık
+	   alt çizgisi + ince satır çizgileri; hover'da satır primary tonuna döner. */
+	.table-ledger {
+		width: 100%;
+		font-size: var(--text-sm);
+		border-collapse: collapse;
+		text-align: left;
+	}
+	.table-ledger th {
+		padding: 0 1rem 0.625rem;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--ink-muted);
+		border-bottom: var(--border-width-thick) solid var(--ink);
+	}
+	.table-ledger td {
+		padding: 0.875rem 1rem;
+		border-bottom: var(--border-width-thin) solid var(--border-c);
+	}
+	.table-ledger tbody tr {
+		transition: background-color var(--duration-fast) var(--ease-default);
+		&:hover { background: color-mix(in oklab, var(--primary) 5%, transparent); }
+	}
+
 	/* --- Alert --- */
 	.alert {
 		display: flex;

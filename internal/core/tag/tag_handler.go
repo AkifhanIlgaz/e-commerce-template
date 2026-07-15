@@ -53,9 +53,6 @@ func (h *TagHandler) props(c fiber.Ctx, page *TagPage) views.ListingProps {
 		CSRF:     session.Token(c),
 		Sess:     session.FromCtx(c),
 		Query:    strings.TrimSpace(fiber.Query[string](c, "q")),
-		// 1c kart-satır tasarımını klasik tabloyla karşılaştırmak için
-		// etiketler sayfasında iki görünüm birden basılır.
-		Cards: true,
 		Page: views.Listing{
 			Items:      rows,
 			Total:      page.Total,

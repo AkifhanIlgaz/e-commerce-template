@@ -100,7 +100,9 @@ Tek kaynak: **`styles/theme.css`**. Bu dosya Go embed ile (`styles/embed.go` →
 `badge-sm|lg`), `input`, `select`, `textarea`, `input-sm`, `select-sm`,
 `checkbox`(+`checkbox-sm`), `toggle`(+`toggle-sm`), `form-control`, `label`,
 `label-text`, `card`, `card-hover`(tıklanabilir kart), `card-body`,
-`card-title`, `table`, `alert`
+`card-title`, `table`, `table-ledger`(admin CRUD listeleri — kart kutusuz
+"defter" tablo: kalın ink başlık çizgisi, ince satır çizgileri, primary hover),
+`alert`
 (+`alert-danger|success`), `modal`, `modal-open`, `modal-box`, `link`,
 `link-primary`, `join`, `join-item`, `stats`, `stat`, `stat-title`,
 `stat-value`, `divider`, `loading`(+`loading-sm`), `skeleton`, `navbar`,

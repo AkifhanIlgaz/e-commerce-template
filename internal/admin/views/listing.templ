@@ -89,10 +89,6 @@ type ListingProps struct {
 	// OOB true ise ListingTable hx-swap-oob ile basılır: form başarı
 	// yanıtında modal temizlenirken liste out-of-band yenilenir.
 	OOB bool
-	// Cards true ise klasik tablonun altında aynı verinin 1c "kart-satır"
-	// varyantı da basılır (tasarım karşılaştırması). Aynı fragment içinde
-	// yaşadığı için arama/sayfalama/silme iki görünümü birlikte yeniler.
-	Cards bool
 }
 
 // ListingPage — tam sayfa iskeleti: başlık + ekle butonu, tablo fragment'ı
@@ -108,9 +104,12 @@ templ ListingPage(p ListingProps) {
 			{Label: p.Title},
 		},
 	}) {
-		<div class="card overflow-hidden">
-			<div class="flex flex-wrap items-center justify-between gap-3 border-b border-thin border-border px-4 py-3 sm:px-5">
-				<h1 class="font-display text-lg">{ p.Title }</h1>
+		<div class="flex flex-wrap items-center justify-between gap-3 pb-5">
+			<h1 class="text-2xl">{ p.Title }</h1>
+			// Hiç kayıt yokken (arama da yokken) arama kutusu ve ekle butonu
+			// gizlenir; empty state kendi ekle butonunu gösterir. Fragment
+			// swap'larından sonra görünürlüğü delete-modal script'i senkronlar.
+			<div id="listing-toolbar" class={ templ.KV("hidden", p.Page.Empty() && p.Query == "") }>
 				<div class="flex flex-wrap items-center gap-2">
 					<input
 						id="listing-search"
@@ -128,8 +127,8 @@ templ ListingPage(p ListingProps) {
 					@listingAddButton(p, "btn btn-primary btn-sm")
 				</div>
 			</div>
-			@ListingTable(p)
 		</div>
+		@ListingTable(p)
 		<div id="listing-modal"></div>
 		@listingDeleteModal(p)
 	}
@@ -191,45 +190,16 @@ templ listingDeleteModal(p ListingProps) {
 				if (fn) fn(true);
 			});
 
-			// --- Satır seçimi + toplu silme çubuğu (delegasyonla; fragment
-			// swap'larında yeniden bağlanma gerektirmez, seçim swap'ta sıfırlanır) ---
-			function rowBoxes() {
-				return Array.prototype.slice.call(document.querySelectorAll('#listing-table [data-row-select]'));
+			// --- Toolbar görünürlüğü: liste fragment'ı swap edilince (ilk kayıt
+			// oluşturma OOB ile, son kaydı silme direkt hedefle gelir) arama +
+			// ekle butonunun gizli/görünür durumu empty-state marker'ından okunur. ---
+			function syncToolbar() {
+				var tb = document.getElementById('listing-toolbar');
+				if (!tb) return;
+				tb.classList.toggle('hidden', !!document.querySelector('#listing-table [data-listing-empty-noquery]'));
 			}
-			function syncSelection() {
-				var boxes = rowBoxes();
-				var checked = boxes.filter(function (b) { return b.checked; });
-				var bar = document.getElementById('listing-bulkbar');
-				var all = document.querySelector('#listing-table [data-select-all]');
-				if (bar) {
-					bar.classList.toggle('hidden', checked.length === 0);
-					bar.classList.toggle('flex', checked.length > 0);
-					var cnt = bar.querySelector('[data-selected-count]');
-					if (cnt) cnt.textContent = checked.length;
-					var del = bar.querySelector('[data-bulk-delete]');
-					if (del) del.setAttribute('data-delete-name', checked.length + ' kayıt');
-				}
-				if (all) {
-					all.checked = boxes.length > 0 && checked.length === boxes.length;
-					all.indeterminate = checked.length > 0 && checked.length < boxes.length;
-				}
-				boxes.forEach(function (b) {
-					var tr = b.closest('tr');
-					if (tr) tr.classList.toggle('row-selected', b.checked);
-				});
-			}
-			document.addEventListener('change', function (evt) {
-				if (evt.target.matches('[data-select-all]')) {
-					rowBoxes().forEach(function (b) { b.checked = evt.target.checked; });
-				}
-				if (evt.target.matches('[data-select-all], [data-row-select]')) syncSelection();
-			});
-			document.addEventListener('click', function (evt) {
-				if (evt.target.closest('[data-clear-selection]')) {
-					rowBoxes().forEach(function (b) { b.checked = false; });
-					syncSelection();
-				}
-			});
+			document.body.addEventListener('htmx:afterSwap', syncToolbar);
+			document.body.addEventListener('htmx:oobAfterSwap', syncToolbar);
 		})();
 	</script>
 }
@@ -261,43 +231,45 @@ templ ListingTable(p ListingProps) {
 			@listingEmptyState(p)
 		} else {
 			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
+				<table class="table-ledger">
 					<thead>
-						<tr class="border-b border-thin border-border">
-							<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:px-5">İsim</th>
-							<th scope="col" class="hidden px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:table-cell sm:px-5">Oluşturulma</th>
-							<th scope="col" class="px-4 py-3 text-end text-xs font-semibold tracking-wide text-ink-muted uppercase whitespace-nowrap sm:px-5">İşlemler</th>
+						<tr>
+							<th scope="col" class="whitespace-nowrap">İsim</th>
+							<th scope="col" class="hidden whitespace-nowrap sm:table-cell">Oluşturulma</th>
+							<th scope="col" class="text-end whitespace-nowrap">İşlemler</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-border">
+					<tbody>
 						for _, row := range p.Page.Items {
-							<tr class="transition-colors duration-fast hover:bg-surface-alt border-thin border-border">
-								<td class="px-4 py-3 font-medium whitespace-nowrap sm:px-5">
-									<div class="flex items-center gap-3">
-										{ row.Name }
-									</div>
-								</td>
-								<td class="hidden px-4 py-3 whitespace-nowrap text-ink-muted sm:table-cell sm:px-5">{ row.CreatedAt.Format("02.01.2006") }</td>
-								<td class="px-4 py-3 text-end whitespace-nowrap sm:px-5">
-									<div class="flex justify-end gap-2">
+							<tr>
+								<td class="font-medium whitespace-nowrap">{ row.Name }</td>
+								<td class="hidden whitespace-nowrap text-ink-muted sm:table-cell">{ row.CreatedAt.Format("02.01.2006") }</td>
+								<td class="text-end whitespace-nowrap">
+									<div class="flex justify-end gap-1">
 										<button
 											type="button"
-											class="btn btn-outline btn-xs"
+											class="btn btn-ghost btn-xs"
+											title="Düzenle"
 											aria-label={ p.Singular + " düzenle: " + row.Name }
 											hx-get={ fmt.Sprintf("%s/%s/edit%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
 											hx-target="#listing-modal"
 											hx-swap="innerHTML"
-										>Düzenle</button>
+										>
+											@icons.Pencil(templ.Attributes{"class": "size-icon-sm"})
+										</button>
 										<button
 											type="button"
-											class="btn btn-outline btn-danger btn-xs"
+											class="btn btn-ghost btn-xs text-danger"
+											title="Sil"
 											data-delete-name={ row.Name }
 											aria-label={ p.Singular + " sil: " + row.Name }
 											hx-delete={ fmt.Sprintf("%s/%s%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
 											hx-confirm={ fmt.Sprintf("\"%s\" silinsin mi? Bu işlem geri alınamaz.", row.Name) }
 											hx-target="#listing-table"
 											hx-swap="outerHTML"
-										>Sil</button>
+										>
+											@icons.Trash(templ.Attributes{"class": "size-icon-sm"})
+										</button>
 									</div>
 								</td>
 							</tr>
@@ -306,66 +278,6 @@ templ ListingTable(p ListingProps) {
 				</table>
 			</div>
 			@listingPagination(p)
-			if p.Cards {
-				@listingCardVariant(p)
-			}
-		}
-	</div>
-}
-
-// listingCardVariant — 1c "kart-satırlar" tasarımı: her kayıt surface-alt
-// zemin üzerinde yüzen ayrı bir kart, aksiyonlar ikon buton. Klasik tabloyla
-// aynı fragment'ta yaşar; Cards=true olan sayfalarda karşılaştırma için basılır.
-templ listingCardVariant(p ListingProps) {
-	<div class="border-t border-thin border-border bg-surface-alt px-4 py-5 sm:px-5">
-		<div class="mb-4">
-			<h2 class="font-display text-lg">{ p.Title } — kart görünümü</h2>
-			<p class="mt-0.5 text-sm text-ink-muted">{ fmt.Sprintf("%d kayıt gösteriliyor", p.Page.Total) }</p>
-		</div>
-		<div class="hidden gap-3 px-4 pb-2 sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem]">
-			<span class="text-xs font-semibold tracking-wide text-ink-muted uppercase">İsim</span>
-			<span class="text-xs font-semibold tracking-wide text-ink-muted uppercase">Oluşturulma</span>
-			<span aria-hidden="true"></span>
-		</div>
-		<div class="flex flex-col gap-2">
-			for _, row := range p.Page.Items {
-				<div class="card card-hover grid cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-thin border-border px-4 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem]">
-					<div class="min-w-0">
-						<div class="truncate text-sm font-medium">{ row.Name }</div>
-						<div class="mt-0.5 text-xs text-ink-muted sm:hidden">{ row.CreatedAt.Format("02.01.2006") }</div>
-					</div>
-					<span class="hidden text-sm text-ink-muted sm:block">{ row.CreatedAt.Format("02.01.2006") }</span>
-					<div class="flex justify-end gap-1.5">
-						<button
-							type="button"
-							class="btn btn-outline btn-xs"
-							aria-label={ p.Singular + " düzenle: " + row.Name }
-							hx-get={ fmt.Sprintf("%s/%s/edit%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
-							hx-target="#listing-modal"
-							hx-swap="innerHTML"
-						>
-							@icons.Pencil(templ.Attributes{"class": "size-icon-sm"})
-						</button>
-						<button
-							type="button"
-							class="btn btn-outline btn-danger btn-xs"
-							data-delete-name={ row.Name }
-							aria-label={ p.Singular + " sil: " + row.Name }
-							hx-delete={ fmt.Sprintf("%s/%s%s", p.BasePath, row.ID, p.qs(p.Page.Page)) }
-							hx-confirm={ fmt.Sprintf("\"%s\" silinsin mi? Bu işlem geri alınamaz.", row.Name) }
-							hx-target="#listing-table"
-							hx-swap="outerHTML"
-						>
-							@icons.Trash(templ.Attributes{"class": "size-icon-sm"})
-						</button>
-					</div>
-				</div>
-			}
-		</div>
-		if p.Page.TotalPages > 1 {
-			<div class="mt-4 flex items-center justify-center gap-1">
-				@listingPageNumbers(p)
-			</div>
 		}
 	</div>
 }
@@ -429,8 +341,13 @@ templ listingPageNumbers(p ListingProps) {
 
 // listingEmptyState — hiç kayıt yokken gösterilen boş içerik.
 templ listingEmptyState(p ListingProps) {
-	<div class="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-		<span class="flex size-14 items-center justify-center rounded-pill bg-surface-alt text-ink-muted" aria-hidden="true">
+	<div
+		class="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center"
+		if p.Query == "" {
+			data-listing-empty-noquery="true"
+		}
+	>
+		<span class="flex size-14 items-center justify-center rounded-pill bg-surface text-ink-muted shadow-card" aria-hidden="true">
 			@p.Icon(templ.Attributes{"class": "size-icon-lg"})
 		</span>
 		<div class="flex flex-col gap-1">
